@@ -1,0 +1,8 @@
+{
+  "name": "Floory - Private Jet Bespoke Styling",
+  "description": "Ultra-exclusive personalization and engineering management platform for private aviation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
