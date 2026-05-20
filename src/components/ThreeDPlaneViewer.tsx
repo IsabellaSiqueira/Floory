@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as fflate from 'fflate';
-import { Upload, RotateCcw, AlertTriangle, Check, Loader2, Sparkles, HelpCircle } from 'lucide-react';
+import { Upload, RotateCcw, AlertTriangle, Check, Loader2, Sparkles, HelpCircle, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move, Compass, Maximize2 } from 'lucide-react';
 
 // Register fflate globally to make sure FBXLoader can resolve zip compression seamlessly
 if (typeof window !== 'undefined' && !(window as any).fflate) {
@@ -83,6 +83,33 @@ export const ThreeDPlaneViewer = ({
   // Store standard jet generator so we can reset
   const buildProceduralJetRef = useRef<(() => void) | null>(null);
 
+  // Model translation state for position adjustments on X & Y axes
+  const translationRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [translation, setTranslation] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const movePlane = (dx: number, dy: number) => {
+    translationRef.current.x = Number((translationRef.current.x + dx).toFixed(2));
+    translationRef.current.y = Number((translationRef.current.y + dy).toFixed(2));
+    setTranslation({ x: translationRef.current.x, y: translationRef.current.y });
+    
+    // Instantly update active 3D group position for premium real-time responsiveness
+    if (modelGroupRef.current) {
+      modelGroupRef.current.position.x = translationRef.current.x;
+      // Combine manual position and the levitation wave
+      modelGroupRef.current.position.y = translationRef.current.y + Math.sin(Date.now() * 0.001) * 0.04;
+    }
+  };
+
+  const resetTranslation = () => {
+    translationRef.current.x = 0;
+    translationRef.current.y = 0;
+    setTranslation({ x: 0, y: 0 });
+    if (modelGroupRef.current) {
+      modelGroupRef.current.position.x = 0;
+      modelGroupRef.current.position.y = 0;
+    }
+  };
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -115,7 +142,7 @@ export const ThreeDPlaneViewer = ({
     controls.minDistance = 1.25;
     controls.maxDistance = 6.0;
     controls.maxPolarAngle = Math.PI / 2 + 0.15;
-    controls.target.set(0, -0.15, 0);
+    controls.target.set(0, -0.45, 0);
     controls.update();
     controlsRef.current = controls;
 
@@ -353,8 +380,9 @@ export const ThreeDPlaneViewer = ({
       animationFrameIdRef.current = requestAnimationFrame(animate);
 
       if (modelGroup) {
-        // Subtle levitation/floating flow on Y axis
-        modelGroup.position.y = Math.sin(Date.now() * 0.001) * 0.04;
+        // Apply manual translation offsets + subtle levitation/floating flow on Y axis
+        modelGroup.position.x = translationRef.current.x;
+        modelGroup.position.y = translationRef.current.y + Math.sin(Date.now() * 0.001) * 0.04;
       }
 
       const now = Date.now();
@@ -781,10 +809,11 @@ export const ThreeDPlaneViewer = ({
       setCustomModelInfo(null);
       setLoadError(null);
       updateStyleAndLighting(visualStyle, lightingMode);
+      resetTranslation();
 
       // Reset camera and controls to default perspective
       if (controlsRef.current && cameraRef.current) {
-        controlsRef.current.target.set(0, -0.15, 0);
+        controlsRef.current.target.set(0, -0.45, 0);
         cameraRef.current.position.set(0, 0.4, 3.2);
         controlsRef.current.update();
       }
@@ -812,7 +841,7 @@ export const ThreeDPlaneViewer = ({
 
   return (
     <div 
-      className="w-full h-full flex flex-col items-center justify-center relative touch-none select-none"
+      className="w-full h-full flex-1 flex flex-col items-center justify-center relative touch-none select-none"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -830,7 +859,7 @@ export const ThreeDPlaneViewer = ({
       {/* 3D Canvas Container */}
       <div 
         ref={containerRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden flex items-center justify-center"
+        className="w-full h-full flex-1 cursor-grab active:cursor-grabbing relative overflow-hidden flex items-center justify-center"
       >
         {/* Dynamic scanning laser glow lines overlay mirroring tunnel */}
         <div className="absolute inset-0 xray-mesh opacity-10 pointer-events-none" />
@@ -994,13 +1023,36 @@ export const ThreeDPlaneViewer = ({
 
         {/* High-fidelity Orbit Controller Floating HUD (Always visible for luxury exploration) */}
         <div className="absolute right-4.5 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2.5 z-20 pointer-events-auto bg-black/40 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] animate-fade-in">
-          {/* RESET BUTTON */}
+          {/* RECENTER ALL BUTTON */}
+          <button
+            type="button"
+            onClick={() => {
+              lastInteractionTimeRef.current = Date.now();
+              // 1. Reset Camera position & Orbit target
+              if (controlsRef.current && cameraRef.current) {
+                controlsRef.current.target.set(0, -0.45, 0);
+                cameraRef.current.position.set(0, 0.4, 3.2);
+                controlsRef.current.update();
+              }
+              // 2. Reset aircraft translation offsets to 0,0
+              resetTranslation();
+            }}
+            className="group relative w-8 h-8 flex items-center justify-center rounded-xl bg-gradient-to-br from-purple-500/25 to-indigo-500/25 border border-purple-500/40 hover:border-purple-400 hover:from-purple-500/40 hover:to-indigo-500/40 text-purple-200 hover:text-white active:scale-90 shadow-[0_0_12px_rgba(168,85,247,0.2)] transition-all cursor-pointer"
+            title="Recentralizar Tudo"
+          >
+            <Compass className="w-4 h-4 group-hover:rotate-45 transition-transform duration-500 ease-out" />
+            <span className="absolute right-10 top-1/2 -translate-y-1/2 bg-black/95 text-[8px] uppercase tracking-wider font-bold font-mono text-white px-2.5 py-1.5 rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg">
+              Recentralizar Tudo
+            </span>
+          </button>
+
+          {/* RESET CAMERA ONLY BUTTON */}
           <button
             type="button"
             onClick={() => {
               lastInteractionTimeRef.current = Date.now();
               if (controlsRef.current && cameraRef.current) {
-                controlsRef.current.target.set(0, -0.15, 0);
+                controlsRef.current.target.set(0, -0.45, 0);
                 cameraRef.current.position.set(0, 0.4, 3.2);
                 controlsRef.current.update();
               }
@@ -1009,7 +1061,7 @@ export const ThreeDPlaneViewer = ({
             title="Resetar Câmera"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span className="absolute right-10 top-1/2 -translate-y-1/2 bg-black/95 text-[8px] uppercase tracking-wider font-bold font-mono text-white px-2 px-2.5 py-1.5 rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg">
+            <span className="absolute right-10 top-1/2 -translate-y-1/2 bg-black/95 text-[8px] uppercase tracking-wider font-bold font-mono text-white px-2.5 py-1.5 rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg">
               Resetar Câmera
             </span>
           </button>
@@ -1099,6 +1151,10 @@ export const ThreeDPlaneViewer = ({
                   <div className="w-8 py-0.5 bg-white/10 text-center rounded text-white/70 font-bold uppercase tracking-wide">Inércia</div>
                   <span>Velocidade desacelera ao soltar</span>
                 </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 py-0.5 bg-white/10 text-center rounded text-white/70 font-bold uppercase tracking-wide">Reset</div>
+                  <span>Bússola recentraiiza tudo</span>
+                </div>
                 <p className="text-[7.5px] text-purple-400 font-sans pt-1 leading-snug">
                   ✨ O giro automático pausa ao arrastar e retoma após 3 segundos de inatividade.
                 </p>
@@ -1106,6 +1162,88 @@ export const ThreeDPlaneViewer = ({
             </div>
           )}
         </div>
+
+        {/* Positional D-Pad Controller Panel (Bottom-Right) */}
+        {!hideControls && (
+          <div className="absolute bottom-4 right-4 flex flex-col items-center gap-2 pointer-events-auto bg-black/40 backdrop-blur-xl p-3.5 rounded-2xl border border-white/10 w-[180px] z-10 select-none text-center shadow-2xl animate-fade-in">
+            <div className="w-full flex items-center justify-between border-b border-white/10 pb-1.5 mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <Move className="w-3 h-3 text-purple-400" />
+                <span className="text-[8px] uppercase tracking-[0.2em] text-gray-300 font-bold font-mono">Posição</span>
+              </div>
+              <div className="flex gap-1.5 text-[7px] font-mono text-purple-300 font-bold">
+                <span>X: {translation.x}</span>
+                <span>Y: {translation.y}</span>
+              </div>
+            </div>
+
+            {/* D-Pad Buttons Cross Layout */}
+            <div className="grid grid-cols-3 gap-1.5 w-[110px] aspect-square items-center justify-center my-1 relative">
+              {/* Row 1 */}
+              <div />
+              <button
+                type="button"
+                onClick={() => movePlane(0, 0.1)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-purple-500/15 active:scale-90 text-white hover:text-purple-300 transition-all cursor-pointer"
+                title="Mover para Cima (+Y)"
+              >
+                <ArrowUp className="w-3.5 h-3.5" />
+              </button>
+              <div />
+
+              {/* Row 2 */}
+              <button
+                type="button"
+                onClick={() => movePlane(-0.1, 0)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-purple-500/15 active:scale-90 text-white hover:text-purple-300 transition-all cursor-pointer"
+                title="Mover para Esquerda (-X)"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={resetTranslation}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 hover:border-purple-500/40 hover:bg-purple-500/25 active:scale-95 text-purple-300 transition-all cursor-pointer"
+                title="Zerar Posição (0, 0)"
+              >
+                <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+              </button>
+              <button
+                type="button"
+                onClick={() => movePlane(0.1, 0)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-purple-500/15 active:scale-90 text-white hover:text-purple-300 transition-all cursor-pointer"
+                title="Mover para Direita (+X)"
+              >
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Row 3 */}
+              <div />
+              <button
+                type="button"
+                onClick={() => movePlane(0, -0.1)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-purple-500/15 active:scale-90 text-white hover:text-purple-300 transition-all cursor-pointer"
+                title="Mover para Baixo (-Y)"
+              >
+                <ArrowDown className="w-3.5 h-3.5" />
+              </button>
+              <div />
+            </div>
+
+            <button
+              type="button"
+              onClick={resetTranslation}
+              disabled={translation.x === 0 && translation.y === 0}
+              className={`text-[7px] uppercase tracking-wider font-extrabold font-mono transition-all duration-300 py-1 px-3 mt-1.5 rounded-full ${
+                translation.x === 0 && translation.y === 0
+                  ? 'opacity-0 scale-95 pointer-events-none'
+                  : 'text-purple-400 hover:text-white bg-purple-500/5 border border-purple-500/10 hover:border-purple-500/30 active:scale-95 cursor-pointer'
+              }`}
+            >
+              Resetar Eixos
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

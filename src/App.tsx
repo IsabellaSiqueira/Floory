@@ -14,6 +14,7 @@ import {
   Clock, 
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Zap,
   Leaf,
   X,
@@ -1195,15 +1196,24 @@ const StudioScreen = ({
   showCustomAlert: (m: string) => void;
   key?: any;
 }) => {
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+  // Auto-expand panel when processing starts to display progress messages clearly
+  useEffect(() => {
+    if (isStudioProcessing) {
+      setIsPanelOpen(true);
+    }
+  }, [isStudioProcessing]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 w-full h-full bg-[#030107] flex flex-col justify-between"
+      className="absolute inset-0 w-full h-full bg-[#030107] overflow-hidden"
     >
       {/* Principal full-bleed 3D canvas of the customer plane */}
-      <div className="absolute inset-0 w-full h-full z-0">
+      <div className="absolute inset-0 w-full h-full z-0 pb-[280px] flex flex-col">
         <ThreeDPlaneViewer 
           visualStyle={studioStyle} 
           lightingMode={studioLighting} 
@@ -1233,80 +1243,113 @@ const StudioScreen = ({
         </button>
       </div>
 
-      {/* Glassmorphic floating AI control panel centering HUD controls at the page bottom */}
-      <div className="absolute bottom-24 left-4 right-4 bg-black/20 backdrop-blur-xl border border-white/10 p-4 rounded-2xl flex flex-col gap-3.5 pointer-events-auto select-none z-10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
-        {/* Segment 1: AI Prompt Command */}
-        <div className="flex flex-col gap-2">
-          <div className="relative">
-            <input 
-              type="text" 
-              value={studioPrompt}
-              onChange={(e) => setStudioPrompt(e.target.value)}
-              placeholder="Ex: Aplicar textura Violet Chrome..."
-              disabled={isStudioProcessing}
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-10 py-3 text-[10px] text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50 transition-colors uppercase tracking-wider font-mono"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
-            </div>
-          </div>
-          <button
-            onClick={handleProcessStudioAi}
-            disabled={isStudioProcessing || !studioPrompt.trim()}
-            className={`w-full py-3 rounded-xl text-[9px] uppercase font-bold tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
-              studioPrompt.trim() && !isStudioProcessing 
-                ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]' 
-                : 'bg-white/5 text-white/30 pointer-events-none'
-            }`}
-          >
-            {isStudioProcessing ? (
-              <span className="flex items-center gap-2">
-                <motion.div 
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full"
-                />
-                <span className="animate-pulse">{studioStatusMessage || 'Processando com IA...'}</span>
-              </span>
-            ) : (
-              <>
-                <Wand2 className="w-3.5 h-3.5" />
-                <span>Processar Textura com IA</span>
-              </>
-            )}
-          </button>
-        </div>
+      {/* Absolute positioning container at page bottom for the panel and its toggle */}
+      <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 w-[90%] max-w-md flex flex-col items-center gap-3.5 pointer-events-none">
+        
+        {/* Toggle Button (Attachment on top of panel when open, or sitting alone when closed) */}
+        <button
+          type="button"
+          onClick={() => setIsPanelOpen(!isPanelOpen)}
+          className="pointer-events-auto bg-black/40 hover:bg-black/65 backdrop-blur-md border border-white/10 rounded-full p-2.5 px-4 flex items-center gap-2 hover:border-purple-500/30 active:scale-95 transition-all text-white/95 cursor-pointer shadow-lg group select-none"
+        >
+          {isPanelOpen ? (
+            <>
+              <span className="text-[8px] uppercase tracking-[0.2em] font-bold font-mono text-purple-300">Minimizar Designer</span>
+              <ChevronDown className="w-3.5 h-3.5 text-purple-400 group-hover:translate-y-0.5 transition-transform" />
+            </>
+          ) : (
+            <>
+              <span className="text-[8px] uppercase tracking-[0.2em] font-bold font-mono text-purple-200 group-hover:text-purple-300 transition-colors">Personalizar com IA</span>
+              <ChevronUp className="w-3.5 h-3.5 text-purple-400 group-hover:-translate-y-0.5 transition-transform animate-pulse" />
+            </>
+          )}
+        </button>
 
-        {/* Thin elegant separator line */}
-        <div className="border-t border-white/5" />
+        {/* Collapsible Panel with smooth AnimatePresence */}
+        <AnimatePresence>
+          {isPanelOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="w-full bg-black/45 backdrop-blur-2xl border border-white/10 p-4 rounded-2xl flex flex-col gap-3.5 pointer-events-auto select-none shadow-[0_10px_40px_rgba(0,0,0,0.6)]"
+            >
+              {/* Segment 1: AI Prompt Command */}
+              <div className="flex flex-col gap-2">
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    value={studioPrompt}
+                    onChange={(e) => setStudioPrompt(e.target.value)}
+                    placeholder="Ex: Aplicar textura Violet Chrome..."
+                    disabled={isStudioProcessing}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-10 py-3 text-[10px] text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50 transition-colors uppercase tracking-wider font-mono"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+                  </div>
+                </div>
+                <button
+                  onClick={handleProcessStudioAi}
+                  disabled={isStudioProcessing || !studioPrompt.trim()}
+                  className={`w-full py-3 rounded-xl text-[9px] uppercase font-bold tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
+                    studioPrompt.trim() && !isStudioProcessing 
+                      ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]' 
+                      : 'bg-white/5 text-white/30 pointer-events-none'
+                  }`}
+                >
+                  {isStudioProcessing ? (
+                    <span className="flex items-center gap-2">
+                      <motion.div 
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full"
+                      />
+                      <span className="animate-pulse">{studioStatusMessage || 'Processando com IA...'}</span>
+                    </span>
+                  ) : (
+                    <>
+                      <Wand2 className="w-3.5 h-3.5" />
+                      <span>Processar Textura com IA</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
-        {/* Segment 2: Scene Environment Studio Lighting Pills */}
-        <div>
-          <span className="text-[7.5px] uppercase tracking-[0.2em] text-gray-400 font-light block mb-2 font-mono text-left">Iluminação Hangar</span>
-          <div className="grid grid-cols-3 gap-1">
-            <button
-              type="button"
-              onClick={() => setStudioLighting('hangar')}
-              className={`text-[8px] font-medium py-1.5 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${studioLighting === 'hangar' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
-            >
-              VIP Hangar
-            </button>
-            <button
-              type="button"
-              onClick={() => setStudioLighting('aurora')}
-              className={`text-[8px] font-medium py-1.5 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${studioLighting === 'aurora' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
-            >
-              Cosmic Laser
-            </button>
-            <button
-              type="button"
-              onClick={() => setStudioLighting('sunset')}
-              className={`text-[8px] font-medium py-1.5 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${studioLighting === 'sunset' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
-            >
-              Sunset Gold
-            </button>
-          </div>
-        </div>
+              {/* Thin elegant separator line */}
+              <div className="border-t border-white/5" />
+
+              {/* Segment 2: Scene Environment Studio Lighting Pills */}
+              <div>
+                <span className="text-[7.5px] uppercase tracking-[0.2em] text-gray-400 font-light block mb-2 font-mono text-left">Iluminação Hangar</span>
+                <div className="grid grid-cols-3 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setStudioLighting('hangar')}
+                    className={`text-[8px] font-medium py-1.5 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${studioLighting === 'hangar' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
+                  >
+                    VIP Hangar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStudioLighting('aurora')}
+                    className={`text-[8px] font-medium py-1.5 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${studioLighting === 'aurora' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
+                  >
+                    Cosmic Laser
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStudioLighting('sunset')}
+                    className={`text-[8px] font-medium py-1.5 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${studioLighting === 'sunset' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
+                  >
+                    Sunset Gold
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
