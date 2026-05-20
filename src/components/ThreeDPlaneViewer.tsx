@@ -39,7 +39,7 @@ export const ThreeDPlaneViewer = () => {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 3, 10);
+    camera.position.set(0, 0.4, 3.2); // Aggressive starting zoom for maximum visual impact & scale compensation (analogous to 1m camera orbit)
     cameraRef.current = camera;
 
     // 3. Renderer Setup (with transparency and high-specular ACES Tone-mapping for bespoke av-aesthetics)
@@ -515,6 +515,23 @@ export const ThreeDPlaneViewer = () => {
     isDragging.current = false;
   };
 
+  // Zoom control using mouse wheel (simulating model-viewer zoom and boundaries)
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!cameraRef.current) return;
+    const zoomFactor = 0.08;
+    const direction = e.deltaY > 0 ? 1 : -1;
+    
+    // Zoom in/out with boundary constraints to prevent model from disappearing or clipping
+    const minZ = 1.0; // Close inspection zoom boundary
+    const maxZ = 7.0; // Distance boundary
+    
+    let newZ = cameraRef.current.position.z + direction * zoomFactor * Math.max(cameraRef.current.position.z * 0.5, 0.4);
+    if (newZ < minZ) newZ = minZ;
+    if (newZ > maxZ) newZ = maxZ;
+    
+    cameraRef.current.position.z = newZ;
+  };
+
   // Drag and Drop GLB/GLTF model parser
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -752,6 +769,7 @@ export const ThreeDPlaneViewer = () => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUpOrLeave}
         onMouseLeave={handleMouseUpOrLeave}
+        onWheel={handleWheel}
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleFileDrop}
         className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden flex items-center justify-center"

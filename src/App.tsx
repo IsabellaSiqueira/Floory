@@ -316,6 +316,7 @@ const App = () => {
             <ReportScreen 
               key="report" 
               onOpenMarketplace={() => setIsMarketplaceModalOpen(true)} 
+              onOpenChat={() => setIsChatOpen(true)}
               techThinkingStep={techThinkingStep}
               setTechThinkingStep={setTechThinkingStep}
               thinkingMessageIndex={thinkingMessageIndex}
@@ -1048,8 +1049,9 @@ const HomeScreen = ({ onOpenCall, onOpenAi, onOpenFleet }: { onOpenCall: () => v
   </motion.div>
 );
 
-const ReportScreen = ({ onOpenMarketplace, techThinkingStep, setTechThinkingStep, thinkingMessageIndex, setThinkingMessageIndex }: { 
+const ReportScreen = ({ onOpenMarketplace, onOpenChat, techThinkingStep, setTechThinkingStep, thinkingMessageIndex, setThinkingMessageIndex }: { 
   onOpenMarketplace: () => void, 
+  onOpenChat: () => void,
   techThinkingStep: number, 
   setTechThinkingStep: React.Dispatch<React.SetStateAction<number>>,
   thinkingMessageIndex: number,
@@ -1095,13 +1097,21 @@ const ReportScreen = ({ onOpenMarketplace, techThinkingStep, setTechThinkingStep
       exit={{ opacity: 0, x: -20 }}
       className="space-y-6"
     >
-      <header>
-        <h2 className="text-xl font-light tracking-tight uppercase text-emerald-400">Relatório de Engenharia</h2>
-        <p className="text-white/40 text-[10px] tracking-widest uppercase">Análise em tempo real do sistema Floory</p>
+      {/* Top flex header with executive markings matching the requested bespoke aviation feel */}
+      <header className="flex flex-col gap-1 border-b border-white/5 pb-4 px-1">
+        <div className="flex justify-between items-center">
+          <span className="text-xl font-bold tracking-tight text-white font-mono">PR-NEY</span>
+          <span className="text-[9px] bg-purple-500/15 border border-purple-500/30 text-purple-300 font-bold px-3 py-1 rounded uppercase tracking-wider">
+            Bespoke Aviation Aesthetics
+          </span>
+        </div>
+        <h2 className="text-sm font-semibold tracking-wide uppercase text-emerald-400 mt-2">Relatório de Engenharia</h2>
+        <p className="text-white/40 text-[9px] tracking-widest uppercase">Análise em tempo real do sistema Floory</p>
       </header>
 
+      {/* 3D Model View Container with dedicated 50vh viewport to look incredibly high-tech */}
       {techThinkingStep === 0 ? (
-        <GlassCard className="aspect-video p-6 flex flex-col items-center justify-center border-orange-400/20 bg-orange-500/5 overflow-hidden">
+        <GlassCard className="w-full h-[50vh] p-6 flex flex-col items-center justify-center border-orange-400/20 bg-orange-500/5 overflow-hidden">
           <div className="font-mono text-[10px] space-y-2 w-full text-orange-400/80">
             {messages.slice(0, thinkingMessageIndex + 1).map((m, i) => (
               <motion.div 
@@ -1122,7 +1132,7 @@ const ReportScreen = ({ onOpenMarketplace, techThinkingStep, setTechThinkingStep
           </div>
         </GlassCard>
       ) : (
-        <GlassCard className="aspect-video p-0 flex items-center justify-center overflow-hidden border-emerald-400/20 bg-black/40 relative">
+        <GlassCard className="w-full h-[50vh] p-0 flex items-center justify-center overflow-hidden border-emerald-400/20 bg-black/40 relative">
           <ThreeDPlaneViewer />
         </GlassCard>
       )}
@@ -1150,7 +1160,8 @@ const ReportScreen = ({ onOpenMarketplace, techThinkingStep, setTechThinkingStep
         ))}
       </div>
 
-      <div className="space-y-6">
+      {/* Bottom Area containing AI Assistant Insight Report and the requested sticky actions */}
+      <div className="space-y-4">
         <div className="liquid-glass p-4 bg-purple-500/5 border-purple-500/20 relative">
           {dataLoading && <div className="absolute inset-0 skeleton-shimmer z-10 rounded-[24px]" />}
           <p className="text-[9px] uppercase tracking-tighter opacity-50 mb-2 font-bold">Relatório Gemini 3.1 Pro</p>
@@ -1160,13 +1171,24 @@ const ReportScreen = ({ onOpenMarketplace, techThinkingStep, setTechThinkingStep
         </div>
 
         {!dataLoading && (
-          <button 
-            onClick={onOpenMarketplace}
-            className="w-full py-4 bg-emerald-600 rounded-xl text-[10px] uppercase font-bold tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 group"
-          >
-            <Store className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            Aprovar Projeto e Buscar Oficinas
-          </button>
+          <div className="flex flex-col gap-3">
+            {/* Consultar Floory AI Button correctly aligned below the viewer above BottomNav */}
+            <button 
+              onClick={onOpenChat}
+              className="w-full py-4 bg-purple-600 rounded-xl text-[10px] uppercase font-bold tracking-widest shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:bg-purple-500 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-white animate-pulse" />
+              Consultar Floory AI
+            </button>
+
+            <button 
+              onClick={onOpenMarketplace}
+              className="w-full py-4 bg-emerald-600 rounded-xl text-[10px] uppercase font-bold tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+            >
+              <Store className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              Aprovar Projeto e Buscar Oficinas
+            </button>
+          </div>
         )}
       </div>
     </motion.div>
