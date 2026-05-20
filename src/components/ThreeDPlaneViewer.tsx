@@ -2,9 +2,21 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import * as fflate from 'fflate';
 import { Upload, HelpCircle, Activity, RefreshCw } from 'lucide-react';
 
-export const ThreeDPlaneViewer = () => {
+export interface ThreeDPlaneViewerProps {
+  visualStyle?: 'original' | 'chrome' | 'xray';
+  lightingMode?: 'hangar' | 'aurora' | 'sunset';
+  hideControls?: boolean;
+}
+
+export const ThreeDPlaneViewer = ({
+  visualStyle: externalStyle,
+  lightingMode: externalLighting,
+  hideControls = false
+}: ThreeDPlaneViewerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -14,6 +26,19 @@ export const ThreeDPlaneViewer = () => {
   // Bespoke Studio Interactive Customization States
   const [visualStyle, setVisualStyle] = useState<'original' | 'chrome' | 'xray'>('original');
   const [lightingMode, setLightingMode] = useState<'hangar' | 'aurora' | 'sunset'>('hangar');
+
+  // Sync props to state if provided externally
+  useEffect(() => {
+    if (externalStyle) {
+      setVisualStyle(externalStyle);
+    }
+  }, [externalStyle]);
+
+  useEffect(() => {
+    if (externalLighting) {
+      setLightingMode(externalLighting);
+    }
+  }, [externalLighting]);
   const originalMaterialsRef = useRef<Map<THREE.Mesh, THREE.Material | THREE.Material[]>>(new Map());
 
   // Keep references for interaction and animation
@@ -269,77 +294,13 @@ export const ThreeDPlaneViewer = () => {
 
     buildProceduralJet();
 
-    // 7. Dynamic Wind-Tunnel Airflow Particles System
-    const particleCount = 280;
-    const particleGeometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const speeds = new Float32Array(particleCount);
-
-    // Populate random stream coordinates modeling aerodynamic flow curves
-    for (let i = 0; i < particleCount; i++) {
-      // Flow streams start ahead of the plane, and curve beautifully around the wings/body
-      const z = (Math.random() - 0.5) * 12; // Length wise flow range
-      const x = (Math.random() - 0.5) * 8;  // Width
-      const y = (Math.random() - 0.5) * 3;  // Height
-
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = z;
-
-      speeds[i] = 0.08 + Math.random() * 0.12;
-    }
-
-    particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    
-    // Shader-like styling matching neon emerald Floory aesthetic
-    const particleMaterial = new THREE.PointsMaterial({
-      color: 0x10b981,
-      size: 0.065,
-      transparent: true,
-      opacity: 0.7,
-      blending: THREE.AdditiveBlending
-    });
-
-    const particles = new THREE.Points(particleGeometry, particleMaterial);
-    scene.add(particles);
-    particlesRef.current = particles;
-
     // 8. Animation & Render Loop
     const animate = () => {
       animationFrameIdRef.current = requestAnimationFrame(animate);
 
-      // Dynamic rotation when idle
-      if (!isDragging.current && modelGroup) {
-        modelGroup.rotation.y += 0.003;
-        modelGroup.rotation.x = Math.sin(Date.now() * 0.001) * 0.05;
-      }
-
-      // Dynamic particle airflow flow logic (Scan Wind tunnel simulation)
-      if (particles) {
-        const positions = particles.geometry.attributes.position.array as Float32Array;
-        for (let i = 0; i < particleCount; i++) {
-          // Flow from front (+Z) to back (-Z)
-          positions[i * 3 + 2] -= speeds[i];
-
-          // Aerodynamic curvature simulation around fuselage & wings
-          const x = positions[i * 3];
-          const y = positions[i * 3 + 1];
-          const z = positions[i * 3 + 2];
-
-          // Compress airflow near wings (Z between -1.5 & 1.5, X between -3 & 3)
-          if (Math.abs(z) < 2.0 && Math.abs(x) < 3.5) {
-            // Curving stream paths along wings
-            positions[i * 3 + 1] += Math.sin(z * 4) * 0.002;
-          }
-
-          // Reset particle to front once passed tail
-          if (positions[i * 3 + 2] < -6) {
-            positions[i * 3 + 2] = 6;
-            positions[i * 3] = (Math.random() - 0.5) * 8;
-            positions[i * 3 + 1] = (Math.random() - 0.5) * 3;
-          }
-        }
-        particles.geometry.attributes.position.needsUpdate = true;
+      if (modelGroup) {
+        // Subtle levitation/floating flow on position Y instead of rotation to avoid overriding drag quaternion
+        modelGroup.position.y = Math.sin(Date.now() * 0.001) * 0.04;
       }
 
       renderer.render(scene, camera);
@@ -502,8 +463,10 @@ export const ThreeDPlaneViewer = () => {
       y: e.clientY - previousMousePosition.current.y
     };
 
-    modelGroupRef.current.rotation.y += deltaMove.x * 0.008;
-    modelGroupRef.current.rotation.x += deltaMove.y * 0.008;
+    // Premium quaternion-based orbital dragging: rotates around screen X and Y axes perfectly for zero gimbal-lock
+    const qX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deltaMove.y * 0.006);
+    const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), deltaMove.x * 0.006);
+    modelGroupRef.current.quaternion.premultiply(qY).premultiply(qX);
 
     previousMousePosition.current = {
       x: e.clientX,
@@ -512,6 +475,40 @@ export const ThreeDPlaneViewer = () => {
   };
 
   const handleMouseUpOrLeave = () => {
+    isDragging.current = false;
+  };
+
+  // Touch handlers for perfect fluid mobile/tablet finger-dragging orbit rotation
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      isDragging.current = true;
+      previousMousePosition.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+      };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging.current || !modelGroupRef.current || e.touches.length !== 1) return;
+
+    const deltaMove = {
+      x: e.touches[0].clientX - previousMousePosition.current.x,
+      y: e.touches[0].clientY - previousMousePosition.current.y
+    };
+
+    // Premium quaternion-based orbital dragging: rotates around screen X and Y axes perfectly for zero gimbal-lock
+    const qX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), deltaMove.y * 0.006);
+    const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), deltaMove.x * 0.006);
+    modelGroupRef.current.quaternion.premultiply(qY).premultiply(qX);
+
+    previousMousePosition.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    };
+  };
+
+  const handleTouchEnd = () => {
     isDragging.current = false;
   };
 
@@ -552,117 +549,223 @@ export const ThreeDPlaneViewer = () => {
     setIsLoading(true);
     setLoadError(null);
 
+    // Register fflate globally to make sure FBXLoader can resolve zip compression seamlessly
+    if (typeof window !== 'undefined') {
+      (window as any).fflate = fflate;
+      (THREE as any).fflate = fflate;
+    }
+
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    if (fileExtension !== 'glb' && fileExtension !== 'gltf' && fileExtension !== 'fbx') {
-      setLoadError("Selecione um arquivo .glb, .gltf ou .fbx exportado de suas ferramentas 3D (ex: Maya).");
+    
+    // Explicit Maya proprietary formats check with clean tutorial guidance:
+    if (fileExtension === 'mb' || fileExtension === 'ma') {
+      setLoadError("Arquivos nativos (.mb / .ma) do Autodesk Maya são formatos proprietários fechados e não rodam no navegador diretamente. Para visualizar, acesse 'File > Export All' no Maya e salve como FBX (.fbx), OBJ (.obj) ou GLB (.glb) e faça o upload desse novo arquivo exportado!");
+      setIsLoading(false);
+      return;
+    }
+
+    if (fileExtension !== 'glb' && fileExtension !== 'gltf' && fileExtension !== 'fbx' && fileExtension !== 'obj') {
+      setLoadError("Selecione um arquivo .glb, .gltf, .fbx ou .obj válido.");
       setIsLoading(false);
       return;
     }
 
     const fileURL = URL.createObjectURL(file);
+    let resolved = false;
 
-    if (fileExtension === 'fbx') {
-      const loader = new FBXLoader();
-      loader.load(
-        fileURL,
-        (fbx) => {
-          if (modelGroupRef.current) {
-            // Clear previous geometries
-            while (modelGroupRef.current.children.length > 0) {
-              modelGroupRef.current.remove(modelGroupRef.current.children[0]);
-            }
+    // Safety timeout after 15 seconds to prevent infinite "PROCESSANDO ARQUIVO 3D..." spinning
+    const timeoutId = setTimeout(() => {
+      if (!resolved && isLoading) {
+        setIsLoading(false);
+        setLoadError("O processamento do modelo 3D do Maya expirou (limite de 15 segundos). Isso geralmente acontece se o FBX tentar carregar caminhos de textura absolutos do seu computador. Tente exportar com 'Embed Media' ativado no Maya ou prefira o formato .glb.");
+        URL.revokeObjectURL(fileURL);
+      }
+    }, 15000);
 
-            // Save original materials & setup shadows securely
-            originalMaterialsRef.current.clear();
-            fbx.traverse((node) => {
-              if (node instanceof THREE.Mesh) {
-                originalMaterialsRef.current.set(node, node.material);
-                node.castShadow = true;
-                node.receiveShadow = true;
-              }
-            });
+    const handleLoadedModel = (model: THREE.Object3D) => {
+      resolved = true;
+      clearTimeout(timeoutId);
 
-            // Center and scale model beautifully
-            const box = new THREE.Box3().setFromObject(fbx);
-            const size = box.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 5.0 / (maxDim || 1); // Normalize plane size
-            fbx.scale.set(scale, scale, scale);
-            
-            // Re-center model pivot
-            const center = box.getCenter(new THREE.Vector3());
-            fbx.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+      if (!modelGroupRef.current) return;
 
-            modelGroupRef.current.add(fbx);
-            
-            // Instantly apply user-active showroom styling
-            updateStyleAndLighting(visualStyle, lightingMode);
-            
-            setHasLoadedCustom(true);
-          }
-          setIsLoading(false);
-          URL.revokeObjectURL(fileURL);
-        },
-        undefined,
-        (error) => {
-          console.error("FBX Loader failed:", error);
-          setLoadError("Ocorreu um erro ao processar o seu modelo FBX. Verifique se o arquivo não está corrompido ou é compatível.");
-          setIsLoading(false);
-          URL.revokeObjectURL(fileURL);
+      // Clear previous geometries
+      while (modelGroupRef.current.children.length > 0) {
+        modelGroupRef.current.remove(modelGroupRef.current.children[0]);
+      }
+
+      // Reset parent group rotation, position and scale
+      modelGroupRef.current.rotation.set(0, 0, 0);
+      modelGroupRef.current.position.set(0, 0, 0);
+      modelGroupRef.current.quaternion.set(0, 0, 0, 1);
+
+      // Save original materials & setup shadows securely
+      originalMaterialsRef.current.clear();
+      model.traverse((node) => {
+        if (node instanceof THREE.Mesh) {
+          originalMaterialsRef.current.set(node, node.material);
+          node.castShadow = true;
+          node.receiveShadow = true;
         }
-      );
-    } else {
-      const loader = new GLTFLoader();
-      loader.load(
-        fileURL,
-        (gltf) => {
-          if (modelGroupRef.current) {
-            // Clear previous geometries
-            while (modelGroupRef.current.children.length > 0) {
-              modelGroupRef.current.remove(modelGroupRef.current.children[0]);
+      });
+
+      // Compute precise bounding box focusing strictly on geometry meshes (ignoring remote light helpers/cameras)
+      const box = new THREE.Box3();
+      let hasMesh = false;
+
+      model.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.geometry) {
+          child.geometry.computeBoundingBox();
+          if (child.geometry.boundingBox) {
+            const localBox = child.geometry.boundingBox.clone();
+            child.updateWorldMatrix(true, true);
+            localBox.applyMatrix4(child.matrixWorld);
+            if (!hasMesh) {
+              box.copy(localBox);
+              hasMesh = true;
+            } else {
+              box.union(localBox);
             }
-
-            // Save original materials & setup shadows securely
-            originalMaterialsRef.current.clear();
-            gltf.scene.traverse((node) => {
-              if (node instanceof THREE.Mesh) {
-                originalMaterialsRef.current.set(node, node.material);
-                node.castShadow = true;
-                node.receiveShadow = true;
-              }
-            });
-
-            // Center and scale model beautifully
-            const box = new THREE.Box3().setFromObject(gltf.scene);
-            const size = box.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 5.0 / (maxDim || 1); // Normalize plane size
-            gltf.scene.scale.set(scale, scale, scale);
-            
-            // Re-center model pivot
-            const center = box.getCenter(new THREE.Vector3());
-            gltf.scene.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
-
-            modelGroupRef.current.add(gltf.scene);
-            
-            // Instantly apply user-active showroom styling
-            updateStyleAndLighting(visualStyle, lightingMode);
-            
-            setHasLoadedCustom(true);
           }
-          setIsLoading(false);
-          URL.revokeObjectURL(fileURL);
-        },
-        (xhr) => {
-          // progress tracking
-        },
-        (error) => {
-          console.error("Loader failed:", error);
-          setLoadError("Ocorreu um erro ao processar o seu modelo 3D. Verifique a exportação.");
-          setIsLoading(false);
-          URL.revokeObjectURL(fileURL);
         }
-      );
+      });
+
+      // Fallback if no meshes found
+      if (!hasMesh) {
+        box.setFromObject(model);
+      }
+
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      
+      // Scale beautifully to fit the view viewport without clipping
+      const scale = 1.6 / (maxDim || 1);
+      model.scale.set(scale, scale, scale);
+
+      // Re-center model relative to its visual geometry center
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+
+      modelGroupRef.current.add(model);
+
+      // Instantly apply active visual finishes/styles/lighting
+      updateStyleAndLighting(visualStyle, lightingMode);
+      setHasLoadedCustom(true);
+      setIsLoading(false);
+    };
+
+    // Prepare robust loading manager to prevent loading errors from absolute path link problems
+    const manager = new THREE.LoadingManager();
+    
+    manager.setURLModifier((url) => {
+      const lower = url.toLowerCase();
+      // If the URL looks like an absolute local disk path from Maya or references Windows/Mac files system
+      if (
+        url.includes(':\\') || 
+        url.includes(':/') || 
+        lower.startsWith('c:') || 
+        lower.startsWith('d:') || 
+        lower.includes('/users/') || 
+        lower.includes('\\') || 
+        lower.includes('sourceimages/')
+      ) {
+        console.warn("Previnido carregamento externo quebrado. Redirecionando imagem local absoluta do Maya para textura neutra:", url);
+        // Returns a tiny transparent 1x1 pixel image to resolve instantly without triggering 404 blockages
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+      }
+      return url;
+    });
+
+    manager.onError = (itemUrl) => {
+      console.warn("Item de textura/binário com erro, ignorando para prosseguir com a malha:", itemUrl);
+    };
+
+    try {
+      if (fileExtension === 'fbx') {
+        const loader = new FBXLoader(manager);
+        loader.load(
+          fileURL,
+          (fbx) => {
+            try {
+              handleLoadedModel(fbx);
+            } catch (err: any) {
+              console.error("Error processing FBX model child components:", err);
+              setLoadError("O modelo FBX foi baixado mas falhou no processamento interno da malha: " + (err.message || err));
+              setIsLoading(false);
+              resolved = true;
+              clearTimeout(timeoutId);
+            }
+            setTimeout(() => URL.revokeObjectURL(fileURL), 2000);
+          },
+          undefined,
+          (error) => {
+            console.error("FBX Loader load error:", error);
+            setLoadError("Erro ao carregar o arquivo FBX. Verifique se o formato não está compactado de forma incompatível. Dica: prefira exportar em .glb do Maya.");
+            setIsLoading(false);
+            resolved = true;
+            clearTimeout(timeoutId);
+            URL.revokeObjectURL(fileURL);
+          }
+        );
+      } else if (fileExtension === 'obj') {
+        const loader = new OBJLoader(manager);
+        loader.load(
+          fileURL,
+          (obj) => {
+            try {
+              handleLoadedModel(obj);
+            } catch (err: any) {
+              console.error("Error processing OBJ model child components:", err);
+              setLoadError("O modelo OBJ foi baixado mas falhou no processamento interno: " + (err.message || err));
+              setIsLoading(false);
+              resolved = true;
+              clearTimeout(timeoutId);
+            }
+            setTimeout(() => URL.revokeObjectURL(fileURL), 2000);
+          },
+          undefined,
+          (error) => {
+            console.error("OBJ Loader load error:", error);
+            setLoadError("Erro ao carregar arquivo OBJ do Maya. Verifique se o arquivo não está corrompido.");
+            setIsLoading(false);
+            resolved = true;
+            clearTimeout(timeoutId);
+            URL.revokeObjectURL(fileURL);
+          }
+        );
+      } else {
+        const loader = new GLTFLoader(manager);
+        loader.load(
+          fileURL,
+          (gltf) => {
+            try {
+              handleLoadedModel(gltf.scene);
+            } catch (err: any) {
+              console.error("Error processing GLTF model child components:", err);
+              setLoadError("Erro ao processar as malhas do modelo GLTF/GLB: " + (err.message || err));
+              setIsLoading(false);
+              resolved = true;
+              clearTimeout(timeoutId);
+            }
+            setTimeout(() => URL.revokeObjectURL(fileURL), 2000);
+          },
+          undefined,
+          (error) => {
+            console.error("GLTF Loader load error:", error);
+            setLoadError("Erro de leitura do arquivo glTF. Dica: Certifique-se de que exportou no formato autônomo .glb.");
+            setIsLoading(false);
+            resolved = true;
+            clearTimeout(timeoutId);
+            URL.revokeObjectURL(fileURL);
+          }
+        );
+      }
+    } catch (err: any) {
+      console.error("Incidente síncrono disparado no loader:", err);
+      setLoadError("Exceção repentina ao abrir o arquivo: " + (err.message || err));
+      setIsLoading(false);
+      resolved = true;
+      clearTimeout(timeoutId);
+      URL.revokeObjectURL(fileURL);
     }
   };
 
@@ -762,6 +865,13 @@ export const ThreeDPlaneViewer = () => {
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center relative">
+      <input 
+        type="file" 
+        accept=".glb,.gltf,.fbx,.obj,.mb,.ma" 
+        onChange={handleFileSelect} 
+        className="hidden" 
+        id="three-d-file-input"
+      />
       {/* 3D Canvas Container */}
       <div 
         ref={containerRef}
@@ -769,18 +879,17 @@ export const ThreeDPlaneViewer = () => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUpOrLeave}
         onMouseLeave={handleMouseUpOrLeave}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleFileDrop}
-        className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden flex items-center justify-center"
+        className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden flex items-center justify-center touch-none"
       >
         {/* Dynamic scanning laser glow lines overlay mirroring tunnel */}
         <div className="absolute inset-0 xray-mesh opacity-10 pointer-events-none" />
         <div className="absolute top-4 left-4 flex gap-2 z-10 pointer-events-none">
-          <div className="flex items-center gap-1.5 px-2 py-1 liquid-glass rounded-md text-[8px] uppercase font-bold tracking-wider border-emerald-500/30">
-            <Activity className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />
-            Airflow Live Sim
-          </div>
           {hasLoadedCustom && (
             <div className="flex items-center gap-1.5 px-2 py-1 bg-purple-500/20 rounded-md text-[8px] uppercase font-bold tracking-wider border-purple-500/40">
               Personalizado
@@ -789,94 +898,96 @@ export const ThreeDPlaneViewer = () => {
         </div>
 
         {/* Dynamic Studio Customization Controller Panel */}
-        <div className="absolute top-14 left-4 flex flex-col gap-3 pointer-events-auto bg-black/50 backdrop-blur-md p-3 rounded-xl border border-white/10 w-[240px] z-10">
-          <div>
-            <span className="text-[9px] uppercase tracking-wider text-purple-300 font-bold block mb-1.5 font-mono text-left">Acabamento Executivo</span>
-            <div className="grid grid-cols-3 gap-1">
-              <button
-                type="button"
-                onClick={() => setVisualStyle('original')}
-                className={`text-[8px] font-medium py-1 px-1 rounded transition-all cursor-pointer ${visualStyle === 'original' ? 'bg-purple-600 border border-purple-400 text-white font-semibold' : 'bg-white/5 border border-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
-              >
-                Original PBR
-              </button>
-              <button
-                type="button"
-                onClick={() => setVisualStyle('chrome')}
-                className={`text-[8px] font-medium py-1 px-1 rounded transition-all cursor-pointer ${visualStyle === 'chrome' ? 'bg-purple-600 border border-purple-400 text-white font-semibold' : 'bg-white/5 border border-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
-              >
-                Violet Chrome
-              </button>
-              <button
-                type="button"
-                onClick={() => setVisualStyle('xray')}
-                className={`text-[8px] font-medium py-1 px-1 rounded transition-all cursor-pointer ${visualStyle === 'xray' ? 'bg-purple-600 border border-purple-400 text-white font-semibold' : 'bg-white/5 border border-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
-              >
-                Túnel Vento
-              </button>
+        {!hideControls && (
+          <div className="absolute bottom-4 left-4 flex flex-col gap-3.5 pointer-events-auto bg-black/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 w-[250px] z-10 select-none">
+            <div>
+              <span className="text-[8px] uppercase tracking-[0.2em] text-gray-400 font-light block mb-2 font-mono text-left">Acabamento Executivo</span>
+              <div className="grid grid-cols-3 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setVisualStyle('original')}
+                  className={`text-[8px] font-medium py-1 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${visualStyle === 'original' ? 'ring-1 ring-purple-500/50 text-purple-200 bg-purple-500/5' : 'text-white/40 hover:text-white/75'}`}
+                >
+                  Original PBR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVisualStyle('chrome')}
+                  className={`text-[8px] font-medium py-1 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${visualStyle === 'chrome' ? 'ring-1 ring-purple-500/50 text-purple-200 bg-purple-500/5' : 'text-white/40 hover:text-white/75'}`}
+                >
+                  Violet Chrome
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVisualStyle('xray')}
+                  className={`text-[8px] font-medium py-1 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${visualStyle === 'xray' ? 'ring-1 ring-purple-500/50 text-purple-200 bg-purple-500/5' : 'text-white/40 hover:text-white/75'}`}
+                >
+                  Túnel Vento
+                </button>
+              </div>
+            </div>
+            
+            <div className="border-t border-white/5 pt-2.5">
+              <span className="text-[8px] uppercase tracking-[0.2em] text-gray-400 font-light block mb-2 font-mono text-left">Iluminação Hangar</span>
+              <div className="grid grid-cols-3 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setLightingMode('hangar')}
+                  className={`text-[8px] font-medium py-1 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${lightingMode === 'hangar' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
+                >
+                  VIP Hangar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLightingMode('aurora')}
+                  className={`text-[8px] font-medium py-1 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${lightingMode === 'aurora' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
+                >
+                  Cosmic Laser
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLightingMode('sunset')}
+                  className={`text-[8px] font-medium py-1 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${lightingMode === 'sunset' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
+                >
+                  Sunset Gold
+                </button>
+              </div>
             </div>
           </div>
-          
-          <div>
-            <span className="text-[9px] uppercase tracking-wider text-emerald-400 font-bold block mb-1.5 font-mono text-left">Iluminação Hangar</span>
-            <div className="grid grid-cols-3 gap-1">
-              <button
-                type="button"
-                onClick={() => setLightingMode('hangar')}
-                className={`text-[8px] font-medium py-1 px-1 rounded transition-all cursor-pointer ${lightingMode === 'hangar' ? 'bg-emerald-600 border border-emerald-400 text-white font-semibold' : 'bg-white/5 border border-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
-              >
-                VIP Hangar
-              </button>
-              <button
-                type="button"
-                onClick={() => setLightingMode('aurora')}
-                className={`text-[8px] font-medium py-1 px-1 rounded transition-all cursor-pointer ${lightingMode === 'aurora' ? 'bg-emerald-600 border border-emerald-400 text-white font-semibold' : 'bg-white/5 border border-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
-              >
-                Cosmic Laser
-              </button>
-              <button
-                type="button"
-                onClick={() => setLightingMode('sunset')}
-                className={`text-[8px] font-medium py-1 px-1 rounded transition-all cursor-pointer ${lightingMode === 'sunset' ? 'bg-emerald-600 border border-emerald-400 text-white font-semibold' : 'bg-white/5 border border-white/5 text-white/50 hover:text-white hover:bg-white/10'}`}
-              >
-                Sunset Gold
-              </button>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Floating Action Elements */}
-        <div className="absolute bottom-4 right-4 flex gap-2 z-10">
-          <button 
-            type="button"
-            onClick={() => setShowHelp(!showHelp)}
-            className="p-1.5 rounded-lg liquid-glass border-white/10 hover:border-white/30 text-white/60 hover:text-white transition-all flex items-center justify-center"
-            title="Instruções de Conversão Maya (.mb)"
-          >
-            <HelpCircle className="w-4 h-4" />
-          </button>
-          
-          {hasLoadedCustom && (
+        {!hideControls && (
+          <div className="absolute bottom-4 right-4 flex gap-2 z-10">
             <button 
               type="button"
-              onClick={resetToProcedural}
-              className="p-1.5 rounded-lg liquid-glass border-white/10 hover:border-white/30 text-emerald-400 hover:text-emerald-300 transition-all flex items-center justify-center"
-              title="Restaurar Procedural Bombardier"
+              onClick={() => setShowHelp(!showHelp)}
+              className="p-1.5 rounded-lg liquid-glass border-white/10 hover:border-white/30 text-white/60 hover:text-white transition-all flex items-center justify-center font-bold"
+              title="Instruções de Conversão Maya (.mb)"
             >
-              <RefreshCw className="w-4 h-4" />
+              <HelpCircle className="w-4 h-4" />
             </button>
-          )}
+            
+            {hasLoadedCustom && (
+              <button 
+                type="button"
+                onClick={resetToProcedural}
+                className="p-1.5 rounded-lg liquid-glass border-white/10 hover:border-white/30 text-emerald-400 hover:text-emerald-300 transition-all flex items-center justify-center"
+                title="Restaurar Procedural Bombardier"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            )}
 
-          <label className="p-1.5 rounded-lg bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white cursor-pointer transition-all flex items-center justify-center">
-            <Upload className="w-4 h-4" />
-            <input 
-              type="file" 
-              accept=".glb,.gltf,.fbx" 
-              onChange={handleFileSelect} 
-              className="hidden" 
-            />
-          </label>
-        </div>
+            <label 
+              htmlFor="three-d-file-input"
+              className="p-1.5 rounded-lg bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white cursor-pointer transition-all flex items-center justify-center"
+              title="Upload do Modelo 3D"
+            >
+              <Upload className="w-4 h-4" />
+            </label>
+          </div>
+        )}
 
         {/* Loading & Help Info Layers */}
         {isLoading && (
@@ -913,11 +1024,11 @@ export const ThreeDPlaneViewer = () => {
             <ol className="text-[9px] text-white/50 space-y-2 mb-4 list-decimal pl-4">
               <li>No Autodesk Maya, abra seu arquivo <strong>.mb</strong>.</li>
               <li>Acesse <strong>File &gt; Export All...</strong></li>
-              <li>Você pode exportar como <strong>FBX (.fbx)</strong> (nativo e excelente para preservar geometrias) ou como <strong>gITF Export (.gltf / .glb)</strong>.</li>
+              <li>Você pode exportar como <strong>FBX (.fbx)</strong>, <strong>OBJ (.obj)</strong> ou como <strong>glTF Export (.gltf / .glb)</strong>.</li>
               <li>Salve o arquivo convertido e simplesmente arraste-o diretamente para esta caixa ou clique no ícone de Upload!</li>
             </ol>
             <div className="text-[9px] italic text-emerald-400 text-center border border-emerald-500/20 bg-emerald-500/5 p-2 rounded-lg">
-              Arraste e solte o arquivo convertido (.glb, .gltf ou .fbx) aqui para visualizar agora!
+              Arraste e solte o arquivo convertido (.glb, .gltf, .fbx ou .obj) aqui para visualizar agora!
             </div>
           </div>
         )}

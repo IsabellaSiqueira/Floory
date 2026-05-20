@@ -7,6 +7,7 @@ import {
   FileText, 
   Camera,
   Download, 
+  Upload,
   ShieldCheck, 
   Video, 
   MapPin, 
@@ -32,6 +33,7 @@ import { ThreeDPlaneViewer } from './components/ThreeDPlaneViewer';
 enum Screen {
   AUTH = 'auth',
   HOME = 'home',
+  STUDIO = 'studio',
   REPORT = 'report',
   TIMELINE = 'timeline',
   LEGAL = 'legal'
@@ -122,6 +124,53 @@ const App = () => {
   const [hasAudited, setHasAudited] = useState(false);
   const [techThinkingStep, setTechThinkingStep] = useState(0); // 0: Thinking, 1: Final
   const [thinkingMessageIndex, setThinkingMessageIndex] = useState(0);
+
+  // Studio Screen States
+  const [studioStyle, setStudioStyle] = useState<'original' | 'chrome' | 'xray'>('original');
+  const [studioLighting, setStudioLighting] = useState<'hangar' | 'aurora' | 'sunset'>('hangar');
+  const [studioPrompt, setStudioPrompt] = useState('');
+  const [isStudioProcessing, setIsStudioProcessing] = useState(false);
+  const [studioStatusMessage, setStudioStatusMessage] = useState('');
+
+  const handleProcessStudioAi = () => {
+    if (!studioPrompt.trim()) return;
+    setIsStudioProcessing(true);
+    
+    const steps = [
+      "Consultando Gemini 3.5 Pro...",
+      "Analisando volumetria do Bombardier...",
+      "Modelando refletores cromados no hangar virtual...",
+      "Processando verniz super-hidrofóbico...",
+      "Design finalizado com sucesso pela IA!"
+    ];
+
+    let currentStep = 0;
+    setStudioStatusMessage(steps[0]);
+
+    const interval = setInterval(() => {
+      currentStep++;
+      if (currentStep < steps.length) {
+        setStudioStatusMessage(steps[currentStep]);
+      } else {
+        clearInterval(interval);
+        
+        // Match user's command to styles dynamically
+        const lowerPrompt = studioPrompt.toLowerCase();
+        if (lowerPrompt.includes('chrome') || lowerPrompt.includes('violet') || lowerPrompt.includes('prata') || lowerPrompt.includes('metal') || lowerPrompt.includes('ouro') || lowerPrompt.includes('gold')) {
+          setStudioStyle('chrome');
+        } else if (lowerPrompt.includes('xray') || lowerPrompt.includes('vento') || lowerPrompt.includes('wind') || lowerPrompt.includes('aerodinamica')) {
+          setStudioStyle('xray');
+        } else {
+          // toggle or other default
+          setStudioStyle(prev => prev === 'chrome' ? 'original' : 'chrome');
+        }
+
+        setIsStudioProcessing(false);
+        setStudioStatusMessage('');
+        showCustomAlert("Textura processada e instalada pelo Gemini!");
+      }
+    }, 600);
+  };
 
   // Simular reset de tecnologia ao entrar na aba
   useEffect(() => {
@@ -279,7 +328,7 @@ const App = () => {
         )}
       </AnimatePresence>
 
-      <main className="flex-1 w-full max-w-md mx-auto px-6 pt-12 pb-32 overflow-y-auto">
+      <main className={`flex-1 w-full mx-auto relative ${currentScreen === Screen.STUDIO ? 'h-screen pb-0 overflow-hidden' : 'max-w-md px-6 pt-12 pb-32 overflow-y-auto'}`}>
         <AnimatePresence mode="wait">
           {currentScreen === Screen.AUTH && (
             <AuthScreen 
@@ -312,15 +361,26 @@ const App = () => {
               </motion.button>
             </>
           )}
+          {currentScreen === Screen.STUDIO && (
+            <StudioScreen
+              key="studio"
+              studioStyle={studioStyle}
+              studioLighting={studioLighting}
+              setStudioStyle={setStudioStyle}
+              setStudioLighting={setStudioLighting}
+              studioPrompt={studioPrompt}
+              setStudioPrompt={setStudioPrompt}
+              isStudioProcessing={isStudioProcessing}
+              handleProcessStudioAi={handleProcessStudioAi}
+              studioStatusMessage={studioStatusMessage}
+              showCustomAlert={showCustomAlert}
+            />
+          )}
           {currentScreen === Screen.REPORT && (
             <ReportScreen 
               key="report" 
               onOpenMarketplace={() => setIsMarketplaceModalOpen(true)} 
               onOpenChat={() => setIsChatOpen(true)}
-              techThinkingStep={techThinkingStep}
-              setTechThinkingStep={setTechThinkingStep}
-              thinkingMessageIndex={thinkingMessageIndex}
-              setThinkingMessageIndex={setThinkingMessageIndex}
             />
           )}
           {currentScreen === Screen.TIMELINE && (
@@ -1005,16 +1065,6 @@ const HomeScreen = ({ onOpenCall, onOpenAi, onOpenFleet }: { onOpenCall: () => v
           <h3 className="text-sm italic font-light">Bombardier Global 6000: Bespoke Floral</h3>
         </div>
       </GlassCard>
-
-      <button 
-        onClick={onOpenAi}
-        className="w-full py-4 liquid-glass border-purple-500/30 text-[10px] uppercase font-bold tracking-[0.1em] bg-purple-500/5 hover:bg-purple-500/10 transition-all flex items-center justify-center gap-3 group overflow-hidden relative"
-      >
-        <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400 to-transparent opacity-50" />
-        <Wand2 className="w-4 h-4 text-purple-400 group-hover:rotate-12 transition-transform h-min" />
-        <span>Gerar Novo Design com IA</span>
-        <Sparkles className="w-3 h-3 text-purple-300 animate-pulse" />
-      </button>
     </div>
 
     <div className="grid grid-cols-3 gap-3">
@@ -1049,47 +1099,11 @@ const HomeScreen = ({ onOpenCall, onOpenAi, onOpenFleet }: { onOpenCall: () => v
   </motion.div>
 );
 
-const ReportScreen = ({ onOpenMarketplace, onOpenChat, techThinkingStep, setTechThinkingStep, thinkingMessageIndex, setThinkingMessageIndex }: { 
+const ReportScreen = ({ onOpenMarketplace, onOpenChat }: { 
   onOpenMarketplace: () => void, 
   onOpenChat: () => void,
-  techThinkingStep: number, 
-  setTechThinkingStep: React.Dispatch<React.SetStateAction<number>>,
-  thinkingMessageIndex: number,
-  setThinkingMessageIndex: React.Dispatch<React.SetStateAction<number>>,
   key?: any
 }) => {
-  const [dataLoading, setDataLoading] = useState(true);
-
-  const messages = [
-    "Iniciando Gemini 3.1 Pro...",
-    "Cruzando dados de túnel de vento do Bombardier...",
-    "Calculando densidade do pigmento...",
-    "Otimizando coeficiente de arrasto..."
-  ];
-
-  useEffect(() => {
-    if (techThinkingStep === 0) {
-      const msgTimer = setInterval(() => {
-        setThinkingMessageIndex((prev: number) => {
-          if (prev >= messages.length - 1) {
-            clearInterval(msgTimer);
-            setTimeout(() => setTechThinkingStep(1), 800);
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, 1500);
-      return () => clearInterval(msgTimer);
-    }
-  }, [techThinkingStep, setTechThinkingStep, setThinkingMessageIndex]);
-
-  useEffect(() => {
-    if (techThinkingStep === 1) {
-      const timer = setTimeout(() => setDataLoading(false), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [techThinkingStep]);
-
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }}
@@ -1109,87 +1123,192 @@ const ReportScreen = ({ onOpenMarketplace, onOpenChat, techThinkingStep, setTech
         <p className="text-white/40 text-[9px] tracking-widest uppercase">Análise em tempo real do sistema Floory</p>
       </header>
 
-      {/* 3D Model View Container with dedicated 50vh viewport to look incredibly high-tech */}
-      {techThinkingStep === 0 ? (
-        <GlassCard className="w-full h-[50vh] p-6 flex flex-col items-center justify-center border-orange-400/20 bg-orange-500/5 overflow-hidden">
-          <div className="font-mono text-[10px] space-y-2 w-full text-orange-400/80">
-            {messages.slice(0, thinkingMessageIndex + 1).map((m, i) => (
-              <motion.div 
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                key={i} 
-                className="flex items-center gap-2"
-              >
-                <span className="text-orange-500/40">[{new Date().toLocaleTimeString()}]</span>
-                <span>{m}</span>
-              </motion.div>
-            ))}
-            <motion.div 
-              animate={{ opacity: [0, 1, 0] }}
-              transition={{ repeat: Infinity, duration: 0.5 }}
-              className="w-2 h-4 bg-orange-400/50 inline-block align-middle ml-1"
-            />
-          </div>
-        </GlassCard>
-      ) : (
-        <GlassCard className="w-full h-[50vh] p-0 flex items-center justify-center overflow-hidden border-emerald-400/20 bg-black/40 relative">
-          <ThreeDPlaneViewer />
-        </GlassCard>
-      )}
-
+      {/* Analytical Panel Cards styled under high-end Bespoke Aviation guidelines */}
       <div className="space-y-4">
         {[
-          { label: 'Massa Adicional de Tinta', value: '+42,4 kg' },
-          { label: 'Arrasto Aerodinâmico', value: '-1,2% (Otimizada)' },
-          { label: 'Certificação Estrutural', value: 'ANAC-145' },
+          { label: 'Massa Adicional de Tinta', value: '+42,4 kg', desc: 'Massa adicional calibrada dentro dos limites operacionais da aeronave.' },
+          { label: 'Arrasto Aerodinâmico', value: '-1,2% (Otimizada)', desc: 'Arrasto residual reduzido na camada limite folhada a cromo.' },
+          { label: 'Certificação Estrutural', value: 'ANAC-145', desc: 'A homologação do hangar está em andamento sob ritos Bespoke.' },
         ].map((data, i) => (
-          <div key={i} className="flex justify-between items-center border-b border-white/5 py-2 px-1">
-            <span className="text-[10px] font-medium opacity-60 uppercase tracking-wider">{data.label}</span>
-            {dataLoading ? (
-              <div className="h-4 w-20 rounded skeleton-shimmer bg-white/5" />
-            ) : (
-              <motion.span 
-                initial={{ opacity: 0, x: 5 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="text-xs font-mono font-bold text-emerald-400"
-              >
-                {data.value}
-              </motion.span>
-            )}
-          </div>
+          <GlassCard key={i} className="flex flex-col border-white/10 p-5 rounded-2xl bg-white/[0.02]">
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-[10px] font-medium opacity-60 uppercase tracking-wider">{data.label}</span>
+              <span className="text-xs font-mono font-bold text-emerald-400">{data.value}</span>
+            </div>
+            <p className="text-[9.5px] text-white/40 leading-relaxed font-light">{data.desc}</p>
+          </GlassCard>
         ))}
       </div>
 
-      {/* Bottom Area containing AI Assistant Insight Report and the requested sticky actions */}
+      {/* Bottom Area containing AI Assistant Insight Report and actions */}
       <div className="space-y-4">
-        <div className="liquid-glass p-4 bg-purple-500/5 border-purple-500/20 relative">
-          {dataLoading && <div className="absolute inset-0 skeleton-shimmer z-10 rounded-[24px]" />}
-          <p className="text-[9px] uppercase tracking-tighter opacity-50 mb-2 font-bold">Relatório Gemini 3.1 Pro</p>
+        <div className="liquid-glass p-4 bg-purple-500/5 border-purple-500/20 relative rounded-2xl">
+          <p className="text-[9px] uppercase tracking-tighter opacity-50 mb-2 font-bold text-purple-300">Laudo Técnico (Gemini 3.5 Pro)</p>
           <p className="text-[11px] leading-relaxed italic text-purple-200">
-            "Redução de arrasto detectada em bueis e Sharklets. A massa adicional está dentro dos parâmetros de aeronavegabilidade para o modelo Global 6000."
+            "A análise micro-aerodinâmica aponta que o acabamento nano-cerâmico reduz a turbulência superficial em Sharklets de forma eficiente, mantendo o consumo de biocombustível otimizado."
           </p>
         </div>
 
-        {!dataLoading && (
-          <div className="flex flex-col gap-3">
-            {/* Consultar Floory AI Button correctly aligned below the viewer above BottomNav */}
-            <button 
-              onClick={onOpenChat}
-              className="w-full py-4 bg-purple-600 rounded-xl text-[10px] uppercase font-bold tracking-widest shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:bg-purple-500 transition-all flex items-center justify-center gap-2 group cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-white animate-pulse" />
-              Consultar Floory AI
-            </button>
+        <div className="flex flex-col gap-3">
+          <button 
+            onClick={onOpenChat}
+            className="w-full py-4 bg-purple-600 rounded-xl text-[10px] uppercase font-bold tracking-widest shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:bg-purple-500 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 text-white animate-pulse" />
+            Consultar Floory AI
+          </button>
 
-            <button 
-              onClick={onOpenMarketplace}
-              className="w-full py-4 bg-emerald-600 rounded-xl text-[10px] uppercase font-bold tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+          <button 
+            onClick={onOpenMarketplace}
+            className="w-full py-4 bg-emerald-600 rounded-xl text-[10px] uppercase font-bold tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+          >
+            <Store className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            Aprovar Projeto e Buscar Oficinas
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const StudioScreen = ({
+  studioStyle,
+  studioLighting,
+  setStudioStyle,
+  setStudioLighting,
+  studioPrompt,
+  setStudioPrompt,
+  isStudioProcessing,
+  handleProcessStudioAi,
+  studioStatusMessage,
+  showCustomAlert
+}: {
+  studioStyle: 'original' | 'chrome' | 'xray';
+  studioLighting: 'hangar' | 'aurora' | 'sunset';
+  setStudioStyle: React.Dispatch<React.SetStateAction<'original' | 'chrome' | 'xray'>>;
+  setStudioLighting: React.Dispatch<React.SetStateAction<'hangar' | 'aurora' | 'sunset'>>;
+  studioPrompt: string;
+  setStudioPrompt: React.Dispatch<React.SetStateAction<string>>;
+  isStudioProcessing: boolean;
+  handleProcessStudioAi: () => void;
+  studioStatusMessage: string;
+  showCustomAlert: (m: string) => void;
+  key?: any;
+}) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 w-full h-full bg-[#030107] flex flex-col justify-between"
+    >
+      {/* Principal full-bleed 3D canvas of the customer plane */}
+      <div className="absolute inset-0 w-full h-full z-0">
+        <ThreeDPlaneViewer 
+          visualStyle={studioStyle} 
+          lightingMode={studioLighting} 
+          hideControls={true} 
+        />
+      </div>
+
+      {/* Floating Header details */}
+      <div className="absolute top-12 left-6 right-6 z-10 flex justify-between items-center pointer-events-none select-none">
+        <div>
+          <span className="text-[7.5px] uppercase tracking-[0.2em] text-purple-400 font-semibold block mb-0.5 font-mono">Bespoke Design Studio</span>
+          <h2 className="text-sm font-light tracking-tight text-white uppercase font-mono">ESTÚDIO DE IA</h2>
+        </div>
+        
+        {/* Elite Client Model Upload Action */}
+        <button
+          onClick={() => {
+            const el = document.getElementById('three-d-file-input');
+            if (el) {
+              (el as HTMLInputElement).click();
+            } else {
+              showCustomAlert("Upload de modelo 3D inicializado.");
+            }
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-black/40 hover:bg-black/60 active:scale-95 border border-white/10 rounded-full text-[8px] uppercase tracking-widest font-bold transition-all text-white/80 hover:text-white pointer-events-auto backdrop-blur-md"
+        >
+          <Upload className="w-3 h-3 text-purple-400" />
+          <span>Upload do Modelo 3D</span>
+        </button>
+      </div>
+
+      {/* Glassmorphic floating AI control panel centering HUD controls at the page bottom */}
+      <div className="absolute bottom-24 left-4 right-4 bg-black/20 backdrop-blur-xl border border-white/10 p-4 rounded-2xl flex flex-col gap-3.5 pointer-events-auto select-none z-10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
+        {/* Segment 1: AI Prompt Command */}
+        <div className="flex flex-col gap-2">
+          <div className="relative">
+            <input 
+              type="text" 
+              value={studioPrompt}
+              onChange={(e) => setStudioPrompt(e.target.value)}
+              placeholder="Ex: Aplicar textura Violet Chrome..."
+              disabled={isStudioProcessing}
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-10 py-3 text-[10px] text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50 transition-colors uppercase tracking-wider font-mono"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+            </div>
+          </div>
+          <button
+            onClick={handleProcessStudioAi}
+            disabled={isStudioProcessing || !studioPrompt.trim()}
+            className={`w-full py-3 rounded-xl text-[9px] uppercase font-bold tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
+              studioPrompt.trim() && !isStudioProcessing 
+                ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]' 
+                : 'bg-white/5 text-white/30 pointer-events-none'
+            }`}
+          >
+            {isStudioProcessing ? (
+              <span className="flex items-center gap-2">
+                <motion.div 
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full"
+                />
+                <span className="animate-pulse">{studioStatusMessage || 'Processando com IA...'}</span>
+              </span>
+            ) : (
+              <>
+                <Wand2 className="w-3.5 h-3.5" />
+                <span>Processar Textura com IA</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Thin elegant separator line */}
+        <div className="border-t border-white/5" />
+
+        {/* Segment 2: Scene Environment Studio Lighting Pills */}
+        <div>
+          <span className="text-[7.5px] uppercase tracking-[0.2em] text-gray-400 font-light block mb-2 font-mono text-left">Iluminação Hangar</span>
+          <div className="grid grid-cols-3 gap-1">
+            <button
+              type="button"
+              onClick={() => setStudioLighting('hangar')}
+              className={`text-[8px] font-medium py-1.5 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${studioLighting === 'hangar' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
             >
-              <Store className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              Aprovar Projeto e Buscar Oficinas
+              VIP Hangar
+            </button>
+            <button
+              type="button"
+              onClick={() => setStudioLighting('aurora')}
+              className={`text-[8px] font-medium py-1.5 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${studioLighting === 'aurora' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
+            >
+              Cosmic Laser
+            </button>
+            <button
+              type="button"
+              onClick={() => setStudioLighting('sunset')}
+              className={`text-[8px] font-medium py-1.5 px-2 rounded-full transition-all duration-300 cursor-pointer text-center ${studioLighting === 'sunset' ? 'ring-1 ring-emerald-500/50 text-emerald-200 bg-emerald-500/5' : 'text-white/40 hover:text-white/75'}`}
+            >
+              Sunset Gold
             </button>
           </div>
-        )}
+        </div>
       </div>
     </motion.div>
   );
@@ -1346,6 +1465,7 @@ const TimelineScreen = ({ onOpenCall, onDownload, onOpenImage, handleQualityAudi
 const BottomNav = ({ current, onChange }: { current: Screen, onChange: (s: Screen) => void }) => {
   const items = [
     { id: Screen.HOME, icon: Home, label: 'Painel' },
+    { id: Screen.STUDIO, icon: Wand2, label: 'STUDIO' },
     { id: Screen.REPORT, icon: Activity, label: 'Tech' },
     { id: Screen.TIMELINE, icon: Camera, label: 'Timeline' },
     { id: Screen.LEGAL, icon: FileText, label: 'Legal' },
