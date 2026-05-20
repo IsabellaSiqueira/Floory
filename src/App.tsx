@@ -974,6 +974,36 @@ const HomeScreen = ({ onOpenCall, onOpenAi, onOpenFleet }: { onOpenCall: () => v
     </header>
 
     <div className="space-y-4">
+      <GlassCard className="aspect-[4/3] p-0 group overflow-hidden border-white/30">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
+        <img 
+          src="https://images.unsplash.com/photo-1540962351504-03099e0a754b?auto=format&fit=crop&q=80&w=800" 
+          alt="Jet Preview" 
+          className="w-full h-full object-cover grayscale brightness-50 group-hover:scale-105 transition-transform duration-1000"
+          referrerPolicy="no-referrer"
+        />
+        
+        <div className="absolute top-4 left-4 flex flex-col gap-2 z-20">
+          <button 
+            onClick={onOpenFleet}
+            className="flex items-center gap-2 px-2 py-1 liquid-glass rounded-md text-[8px] uppercase font-bold tracking-wider border-white/20 hover:border-purple-500/50 transition-all active:scale-95"
+          >
+            <div className="w-1 h-1 rounded-full bg-purple-500 animate-pulse" />
+            AERONAVE: PR-NEY
+            <ChevronDown className="w-2.5 h-2.5 text-white/50" />
+          </button>
+          <div className="flex items-center gap-2 px-2 py-1 liquid-glass rounded-md text-[8px] uppercase font-bold tracking-wider border-emerald-400/30">
+            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+            CONEXÃO SEGURA
+          </div>
+        </div>
+
+        <div className="absolute bottom-6 left-6 right-6 z-20 text-center">
+          <p className="text-[10px] uppercase tracking-widest text-white/60 mb-1">Visualização Ativa</p>
+          <h3 className="text-sm italic font-light">Bombardier Global 6000: Bespoke Floral</h3>
+        </div>
+      </GlassCard>
+
       <GlassCard className="aspect-[4/3] p-0 group overflow-hidden border-white/30 relative bg-[#09050d] flex items-center justify-center">
         {/* Dynamic decorative radar/sonar circles & coordinate overlays */}
         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#9333ea 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
@@ -1036,43 +1066,9 @@ const HomeScreen = ({ onOpenCall, onOpenAi, onOpenFleet }: { onOpenCall: () => v
           </div>
         </div>
       </GlassCard>
-
-      <GlassCard className="aspect-[4/3] p-0 group overflow-hidden border-white/30">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
-        <img 
-          src="https://images.unsplash.com/photo-1540962351504-03099e0a754b?auto=format&fit=crop&q=80&w=800" 
-          alt="Jet Preview" 
-          className="w-full h-full object-cover grayscale brightness-50 group-hover:scale-105 transition-transform duration-1000"
-          referrerPolicy="no-referrer"
-        />
-        
-        <div className="absolute top-4 left-4 flex flex-col gap-2 z-20">
-          <button 
-            onClick={onOpenFleet}
-            className="flex items-center gap-2 px-2 py-1 liquid-glass rounded-md text-[8px] uppercase font-bold tracking-wider border-white/20 hover:border-purple-500/50 transition-all active:scale-95"
-          >
-            <div className="w-1 h-1 rounded-full bg-purple-500 animate-pulse" />
-            AERONAVE: PR-NEY
-            <ChevronDown className="w-2.5 h-2.5 text-white/50" />
-          </button>
-          <div className="flex items-center gap-2 px-2 py-1 liquid-glass rounded-md text-[8px] uppercase font-bold tracking-wider border-emerald-400/30">
-            <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            CONEXÃO SEGURA
-          </div>
-        </div>
-
-        <div className="absolute bottom-6 left-6 right-6 z-20 text-center">
-          <p className="text-[10px] uppercase tracking-widest text-white/60 mb-1">Visualização Ativa</p>
-          <h3 className="text-sm italic font-light">Bombardier Global 6000: Bespoke Floral</h3>
-        </div>
-      </GlassCard>
     </div>
 
-    <div className="grid grid-cols-3 gap-3">
-      <GlassCard className="p-3 text-center rounded-2xl border-white/10">
-        <p className="text-[8px] text-white/40 uppercase mb-1">Hangar</p>
-        <p className="text-[10px] font-medium leading-tight">Jundiaí SP</p>
-      </GlassCard>
+    <div className="grid grid-cols-2 gap-3">
       <GlassCard className="p-3 text-center rounded-2xl border-white/10">
         <p className="text-[8px] text-white/40 uppercase mb-1">Status</p>
         <p className="text-[10px] font-medium leading-tight">Verniz Final</p>
@@ -1083,7 +1079,7 @@ const HomeScreen = ({ onOpenCall, onOpenAi, onOpenFleet }: { onOpenCall: () => v
       </GlassCard>
     </div>
 
-    <section>
+    <section className="relative pr-16">
       <div className="flex justify-between items-center mb-2 px-1">
         <span className="text-[10px] uppercase tracking-widest text-white/60">Progresso Geral</span>
         <span className="text-[10px] font-bold text-purple-400">88%</span>
@@ -1474,28 +1470,28 @@ const TimelineScreen = ({ onOpenCall, onDownload, onOpenImage, handleQualityAudi
     </header>
 
     <div className="space-y-4">
-      <GlassCard className="p-0 border-white/10 overflow-hidden">
+      <GlassCard className="p-0 border-white/10 overflow-hidden max-w-sm mx-auto">
         <img 
           src="https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&q=80&w=800" 
           alt="Polimento" 
           onClick={() => onOpenImage("https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&q=80&w=1200")}
-          className="w-full h-48 object-cover brightness-75 hover:brightness-100 transition-all duration-500 cursor-zoom-in"
+          className="w-full h-32 object-cover brightness-75 hover:brightness-100 transition-all duration-500 cursor-zoom-in"
         />
-        <div className="p-4 space-y-4">
+        <div className="p-3 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] font-semibold text-white">Hoje - Polimento final</p>
               <p className="text-[10px] text-white/50">Inspeção de brilho e proteção nano.</p>
             </div>
-            <button onClick={onDownload} className="p-2 liquid-glass border-white/10 hover:text-purple-400 transition-colors">
-              <Download className="w-4 h-4" />
+            <button onClick={onDownload} className="p-1.5 liquid-glass border-white/10 hover:text-purple-400 transition-colors">
+              <Download className="w-3.5 h-3.5" />
             </button>
           </div>
           
           <button 
             onClick={handleQualityAudit}
             disabled={isAuditing || hasAudited}
-            className={`w-full py-3 rounded-lg text-[9px] uppercase font-bold tracking-widest transition-all duration-500 flex items-center justify-center gap-2 ${hasAudited ? 'bg-emerald-600/30 border border-emerald-500/30 text-emerald-400' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
+            className={`w-full py-2 rounded-lg text-[9px] uppercase font-bold tracking-widest transition-all duration-500 flex items-center justify-center gap-2 ${hasAudited ? 'bg-emerald-600/30 border border-emerald-500/30 text-emerald-400' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}
           >
             {isAuditing ? (
               <>
