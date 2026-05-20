@@ -1476,9 +1476,9 @@ const TimelineScreen = ({ onOpenCall, onDownload, onOpenImage, handleQualityAudi
     <div className="space-y-4">
       <GlassCard className="p-0 border-white/10 overflow-hidden">
         <img 
-          src="https://images.unsplash.com/photo-1517034335191-49520ea7f62e?auto=format&fit=crop&q=80&w=800" 
+          src="https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&q=80&w=800" 
           alt="Polimento" 
-          onClick={() => onOpenImage("https://images.unsplash.com/photo-1517034335191-49520ea7f62e?auto=format&fit=crop&q=80&w=1200")}
+          onClick={() => onOpenImage("https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&q=80&w=1200")}
           className="w-full h-48 object-cover brightness-75 hover:brightness-100 transition-all duration-500 cursor-zoom-in"
         />
         <div className="p-4 space-y-4">
