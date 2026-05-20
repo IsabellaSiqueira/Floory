@@ -7,6 +7,7 @@ import {
   FileText, 
   Camera,
   Download, 
+  Upload,
   ShieldCheck, 
   Video, 
   MapPin, 
@@ -1211,9 +1212,25 @@ const StudioScreen = ({
       </div>
 
       {/* Floating Header details */}
-      <div className="absolute top-12 left-6 z-10 flex flex-col pointer-events-none select-none">
-        <span className="text-[7.5px] uppercase tracking-[0.2em] text-purple-400 font-semibold block mb-0.5 font-mono">Bespoke Design Studio</span>
-        <h2 className="text-sm font-light tracking-tight text-white uppercase font-mono">ESTÚDIO DE IA</h2>
+      <div className="absolute top-12 left-6 right-6 z-10 flex justify-between items-center pointer-events-none select-none">
+        <div>
+          <span className="text-[7.5px] uppercase tracking-[0.2em] text-purple-400 font-semibold block mb-0.5 font-mono">Bespoke Design Studio</span>
+          <h2 className="text-sm font-light tracking-tight text-white uppercase font-mono">ESTÚDIO DE IA</h2>
+        </div>
+        
+        {/* Elite Client Model Upload Action */}
+        <button
+          onClick={() => {
+            const el = document.getElementById('three-d-file-input');
+            if (el) {
+              (el as HTMLInputElement).click();
+            }
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-black/40 hover:bg-black/60 active:scale-95 border border-white/10 rounded-full text-[8px] uppercase tracking-widest font-bold transition-all text-white/80 hover:text-white pointer-events-auto backdrop-blur-md cursor-pointer"
+        >
+          <Upload className="w-3 h-3 text-purple-400" />
+          <span>Upload do Modelo 3D</span>
+        </button>
       </div>
 
       {/* Glassmorphic floating AI control panel centering HUD controls at the page bottom */}
