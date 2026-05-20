@@ -1,10 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import * as fflate from 'fflate';
-import { Upload, HelpCircle, Activity, RefreshCw } from 'lucide-react';
 
 export interface ThreeDPlaneViewerProps {
   visualStyle?: 'original' | 'chrome' | 'xray';
@@ -18,10 +13,6 @@ export const ThreeDPlaneViewer = ({
   hideControls = false
 }: ThreeDPlaneViewerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [hasLoadedCustom, setHasLoadedCustom] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
 
   // Bespoke Studio Interactive Customization States
   const [visualStyle, setVisualStyle] = useState<'original' | 'chrome' | 'xray'>('original');
@@ -39,6 +30,7 @@ export const ThreeDPlaneViewer = ({
       setLightingMode(externalLighting);
     }
   }, [externalLighting]);
+
   const originalMaterialsRef = useRef<Map<THREE.Mesh, THREE.Material | THREE.Material[]>>(new Map());
 
   // Keep references for interaction and animation
@@ -46,7 +38,6 @@ export const ThreeDPlaneViewer = ({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const modelGroupRef = useRef<THREE.Group | null>(null);
-  const particlesRef = useRef<THREE.Points | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
 
   // Mouse interaction state
@@ -529,349 +520,8 @@ export const ThreeDPlaneViewer = ({
     cameraRef.current.position.z = newZ;
   };
 
-  // Drag and Drop GLB/GLTF model parser
-  const handleFileDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      load3DModel(files[0]);
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      load3DModel(files[0]);
-    }
-  };
-
-  const load3DModel = (file: File) => {
-    setIsLoading(true);
-    setLoadError(null);
-
-    // Register fflate globally to make sure FBXLoader can resolve zip compression seamlessly
-    if (typeof window !== 'undefined') {
-      (window as any).fflate = fflate;
-      (THREE as any).fflate = fflate;
-    }
-
-    const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    
-    // Explicit Maya proprietary formats check with clean tutorial guidance:
-    if (fileExtension === 'mb' || fileExtension === 'ma') {
-      setLoadError("Arquivos nativos (.mb / .ma) do Autodesk Maya são formatos proprietários fechados e não rodam no navegador diretamente. Para visualizar, acesse 'File > Export All' no Maya e salve como FBX (.fbx), OBJ (.obj) ou GLB (.glb) e faça o upload desse novo arquivo exportado!");
-      setIsLoading(false);
-      return;
-    }
-
-    if (fileExtension !== 'glb' && fileExtension !== 'gltf' && fileExtension !== 'fbx' && fileExtension !== 'obj') {
-      setLoadError("Selecione um arquivo .glb, .gltf, .fbx ou .obj válido.");
-      setIsLoading(false);
-      return;
-    }
-
-    const fileURL = URL.createObjectURL(file);
-    let resolved = false;
-
-    // Safety timeout after 15 seconds to prevent infinite "PROCESSANDO ARQUIVO 3D..." spinning
-    const timeoutId = setTimeout(() => {
-      if (!resolved && isLoading) {
-        setIsLoading(false);
-        setLoadError("O processamento do modelo 3D do Maya expirou (limite de 15 segundos). Isso geralmente acontece se o FBX tentar carregar caminhos de textura absolutos do seu computador. Tente exportar com 'Embed Media' ativado no Maya ou prefira o formato .glb.");
-        URL.revokeObjectURL(fileURL);
-      }
-    }, 15000);
-
-    const handleLoadedModel = (model: THREE.Object3D) => {
-      resolved = true;
-      clearTimeout(timeoutId);
-
-      if (!modelGroupRef.current) return;
-
-      // Clear previous geometries
-      while (modelGroupRef.current.children.length > 0) {
-        modelGroupRef.current.remove(modelGroupRef.current.children[0]);
-      }
-
-      // Reset parent group rotation, position and scale
-      modelGroupRef.current.rotation.set(0, 0, 0);
-      modelGroupRef.current.position.set(0, 0, 0);
-      modelGroupRef.current.quaternion.set(0, 0, 0, 1);
-
-      // Save original materials & setup shadows securely
-      originalMaterialsRef.current.clear();
-      model.traverse((node) => {
-        if (node instanceof THREE.Mesh) {
-          originalMaterialsRef.current.set(node, node.material);
-          node.castShadow = true;
-          node.receiveShadow = true;
-        }
-      });
-
-      // Compute precise bounding box focusing strictly on geometry meshes (ignoring remote light helpers/cameras)
-      const box = new THREE.Box3();
-      let hasMesh = false;
-
-      model.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.geometry) {
-          child.geometry.computeBoundingBox();
-          if (child.geometry.boundingBox) {
-            const localBox = child.geometry.boundingBox.clone();
-            child.updateWorldMatrix(true, true);
-            localBox.applyMatrix4(child.matrixWorld);
-            if (!hasMesh) {
-              box.copy(localBox);
-              hasMesh = true;
-            } else {
-              box.union(localBox);
-            }
-          }
-        }
-      });
-
-      // Fallback if no meshes found
-      if (!hasMesh) {
-        box.setFromObject(model);
-      }
-
-      const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-      
-      // Scale beautifully to fit the view viewport without clipping
-      const scale = 1.6 / (maxDim || 1);
-      model.scale.set(scale, scale, scale);
-
-      // Re-center model relative to its visual geometry center
-      const center = box.getCenter(new THREE.Vector3());
-      model.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
-
-      modelGroupRef.current.add(model);
-
-      // Instantly apply active visual finishes/styles/lighting
-      updateStyleAndLighting(visualStyle, lightingMode);
-      setHasLoadedCustom(true);
-      setIsLoading(false);
-    };
-
-    // Prepare robust loading manager to prevent loading errors from absolute path link problems
-    const manager = new THREE.LoadingManager();
-    
-    manager.setURLModifier((url) => {
-      const lower = url.toLowerCase();
-      // If the URL looks like an absolute local disk path from Maya or references Windows/Mac files system
-      if (
-        url.includes(':\\') || 
-        url.includes(':/') || 
-        lower.startsWith('c:') || 
-        lower.startsWith('d:') || 
-        lower.includes('/users/') || 
-        lower.includes('\\') || 
-        lower.includes('sourceimages/')
-      ) {
-        console.warn("Previnido carregamento externo quebrado. Redirecionando imagem local absoluta do Maya para textura neutra:", url);
-        // Returns a tiny transparent 1x1 pixel image to resolve instantly without triggering 404 blockages
-        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-      }
-      return url;
-    });
-
-    manager.onError = (itemUrl) => {
-      console.warn("Item de textura/binário com erro, ignorando para prosseguir com a malha:", itemUrl);
-    };
-
-    try {
-      if (fileExtension === 'fbx') {
-        const loader = new FBXLoader(manager);
-        loader.load(
-          fileURL,
-          (fbx) => {
-            try {
-              handleLoadedModel(fbx);
-            } catch (err: any) {
-              console.error("Error processing FBX model child components:", err);
-              setLoadError("O modelo FBX foi baixado mas falhou no processamento interno da malha: " + (err.message || err));
-              setIsLoading(false);
-              resolved = true;
-              clearTimeout(timeoutId);
-            }
-            setTimeout(() => URL.revokeObjectURL(fileURL), 2000);
-          },
-          undefined,
-          (error) => {
-            console.error("FBX Loader load error:", error);
-            setLoadError("Erro ao carregar o arquivo FBX. Verifique se o formato não está compactado de forma incompatível. Dica: prefira exportar em .glb do Maya.");
-            setIsLoading(false);
-            resolved = true;
-            clearTimeout(timeoutId);
-            URL.revokeObjectURL(fileURL);
-          }
-        );
-      } else if (fileExtension === 'obj') {
-        const loader = new OBJLoader(manager);
-        loader.load(
-          fileURL,
-          (obj) => {
-            try {
-              handleLoadedModel(obj);
-            } catch (err: any) {
-              console.error("Error processing OBJ model child components:", err);
-              setLoadError("O modelo OBJ foi baixado mas falhou no processamento interno: " + (err.message || err));
-              setIsLoading(false);
-              resolved = true;
-              clearTimeout(timeoutId);
-            }
-            setTimeout(() => URL.revokeObjectURL(fileURL), 2000);
-          },
-          undefined,
-          (error) => {
-            console.error("OBJ Loader load error:", error);
-            setLoadError("Erro ao carregar arquivo OBJ do Maya. Verifique se o arquivo não está corrompido.");
-            setIsLoading(false);
-            resolved = true;
-            clearTimeout(timeoutId);
-            URL.revokeObjectURL(fileURL);
-          }
-        );
-      } else {
-        const loader = new GLTFLoader(manager);
-        loader.load(
-          fileURL,
-          (gltf) => {
-            try {
-              handleLoadedModel(gltf.scene);
-            } catch (err: any) {
-              console.error("Error processing GLTF model child components:", err);
-              setLoadError("Erro ao processar as malhas do modelo GLTF/GLB: " + (err.message || err));
-              setIsLoading(false);
-              resolved = true;
-              clearTimeout(timeoutId);
-            }
-            setTimeout(() => URL.revokeObjectURL(fileURL), 2000);
-          },
-          undefined,
-          (error) => {
-            console.error("GLTF Loader load error:", error);
-            setLoadError("Erro de leitura do arquivo glTF. Dica: Certifique-se de que exportou no formato autônomo .glb.");
-            setIsLoading(false);
-            resolved = true;
-            clearTimeout(timeoutId);
-            URL.revokeObjectURL(fileURL);
-          }
-        );
-      }
-    } catch (err: any) {
-      console.error("Incidente síncrono disparado no loader:", err);
-      setLoadError("Exceção repentina ao abrir o arquivo: " + (err.message || err));
-      setIsLoading(false);
-      resolved = true;
-      clearTimeout(timeoutId);
-      URL.revokeObjectURL(fileURL);
-    }
-  };
-
-  const resetToProcedural = () => {
-    setHasLoadedCustom(false);
-    setLoadError(null);
-    if (sceneRef.current && modelGroupRef.current) {
-      // Re-trigger procedural build
-      while(modelGroupRef.current.children.length > 0){
-        modelGroupRef.current.remove(modelGroupRef.current.children[0]);
-      }
-      
-      const buildProceduralJet = () => {
-        const planeGroup = new THREE.Group();
-        const metalMaterial = new THREE.MeshStandardMaterial({
-          color: 0x2e1065,
-          metalness: 0.95,
-          roughness: 0.08,
-          transparent: true,
-          opacity: 0.9,
-          side: THREE.DoubleSide
-        });
-        const detailMaterial = new THREE.MeshStandardMaterial({
-          color: 0x9333ea,
-          emissive: 0xa855f7,
-          emissiveIntensity: 0.4,
-          metalness: 0.9,
-          roughness: 0.1
-        });
-        const goldMaterial = new THREE.MeshStandardMaterial({
-          color: 0xfacc15,
-          metalness: 0.95,
-          roughness: 0.1
-        });
-
-        // Fuselage
-        const fuselageGeom = new THREE.CylinderGeometry(0.32, 0.28, 4.8, 16);
-        fuselageGeom.rotateX(Math.PI / 2);
-        const fuselage = new THREE.Mesh(fuselageGeom, metalMaterial);
-        planeGroup.add(fuselage);
-
-        const noseGeom = new THREE.ConeGeometry(0.32, 0.9, 16);
-        noseGeom.rotateX(-Math.PI / 2);
-        noseGeom.translate(0, 0, 2.85);
-        const nose = new THREE.Mesh(noseGeom, detailMaterial);
-        planeGroup.add(nose);
-
-        const tailGeom = new THREE.ConeGeometry(0.28, 1.2, 16);
-        tailGeom.rotateX(Math.PI / 2);
-        tailGeom.translate(0, 0, -3.0);
-        const tail = new THREE.Mesh(tailGeom, metalMaterial);
-        planeGroup.add(tail);
-
-        // Delta Wings left & right
-        const wingShape = new THREE.Shape();
-        wingShape.moveTo(0, 0);
-        wingShape.lineTo(-3.8, -1.8);
-        wingShape.lineTo(-3.7, -2.1);
-        wingShape.lineTo(0, -0.8);
-        const wingExtrude = { depth: 0.03, bevelEnabled: true, bevelSegments: 2 };
-        const leftWingGeom = new THREE.ExtrudeGeometry(wingShape, wingExtrude);
-        leftWingGeom.rotateX(Math.PI / 2);
-        leftWingGeom.translate(0, 0, 0.4);
-        const leftWing = new THREE.Mesh(leftWingGeom, metalMaterial);
-        planeGroup.add(leftWing);
-
-        const rightWingShape = new THREE.Shape();
-        rightWingShape.moveTo(0, 0);
-        rightWingShape.lineTo(3.8, -1.8);
-        rightWingShape.lineTo(3.7, -2.1);
-        rightWingShape.lineTo(0, -0.8);
-        const rightWingGeom = new THREE.ExtrudeGeometry(rightWingShape, wingExtrude);
-        rightWingGeom.rotateX(Math.PI / 2);
-        rightWingGeom.translate(0, 0, 0.4);
-        const rightWing = new THREE.Mesh(rightWingGeom, metalMaterial);
-        planeGroup.add(rightWing);
-
-        planeGroup.scale.set(0.85, 0.85, 0.85);
-        planeGroup.position.set(0, -0.2, 0);
-        modelGroupRef.current?.add(planeGroup);
-
-        // Record original materials
-        originalMaterialsRef.current.clear();
-        planeGroup.traverse((node) => {
-          if (node instanceof THREE.Mesh) {
-            originalMaterialsRef.current.set(node, node.material);
-          }
-        });
-
-        // Instantly apply active visual finish
-        updateStyleAndLighting(visualStyle, lightingMode);
-      };
-      
-      buildProceduralJet();
-    }
-  };
-
   return (
     <div className="w-full h-full flex flex-col items-center justify-center relative">
-      <input 
-        type="file" 
-        accept=".glb,.gltf,.fbx,.obj,.mb,.ma" 
-        onChange={handleFileSelect} 
-        className="hidden" 
-        id="three-d-file-input"
-      />
       {/* 3D Canvas Container */}
       <div 
         ref={containerRef}
@@ -883,19 +533,10 @@ export const ThreeDPlaneViewer = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleFileDrop}
         className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden flex items-center justify-center touch-none"
       >
         {/* Dynamic scanning laser glow lines overlay mirroring tunnel */}
         <div className="absolute inset-0 xray-mesh opacity-10 pointer-events-none" />
-        <div className="absolute top-4 left-4 flex gap-2 z-10 pointer-events-none">
-          {hasLoadedCustom && (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-purple-500/20 rounded-md text-[8px] uppercase font-bold tracking-wider border-purple-500/40">
-              Personalizado
-            </div>
-          )}
-        </div>
 
         {/* Dynamic Studio Customization Controller Panel */}
         {!hideControls && (
@@ -952,83 +593,6 @@ export const ThreeDPlaneViewer = ({
                   Sunset Gold
                 </button>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Floating Action Elements */}
-        {!hideControls && (
-          <div className="absolute bottom-4 right-4 flex gap-2 z-10">
-            <button 
-              type="button"
-              onClick={() => setShowHelp(!showHelp)}
-              className="p-1.5 rounded-lg liquid-glass border-white/10 hover:border-white/30 text-white/60 hover:text-white transition-all flex items-center justify-center font-bold"
-              title="Instruções de Conversão Maya (.mb)"
-            >
-              <HelpCircle className="w-4 h-4" />
-            </button>
-            
-            {hasLoadedCustom && (
-              <button 
-                type="button"
-                onClick={resetToProcedural}
-                className="p-1.5 rounded-lg liquid-glass border-white/10 hover:border-white/30 text-emerald-400 hover:text-emerald-300 transition-all flex items-center justify-center"
-                title="Restaurar Procedural Bombardier"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            )}
-
-            <label 
-              htmlFor="three-d-file-input"
-              className="p-1.5 rounded-lg bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white cursor-pointer transition-all flex items-center justify-center"
-              title="Upload do Modelo 3D"
-            >
-              <Upload className="w-4 h-4" />
-            </label>
-          </div>
-        )}
-
-        {/* Loading & Help Info Layers */}
-        {isLoading && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
-            <div className="w-8 h-8 rounded-full border-2 border-purple-400 border-t-transparent animate-spin mb-3" />
-            <p className="text-[10px] text-purple-200 uppercase tracking-widest font-mono">Processando Arquivo 3D...</p>
-          </div>
-        )}
-
-        {loadError && (
-          <div className="absolute top-12 inset-x-4 p-3 bg-red-950/80 border border-red-500/30 rounded-xl text-center z-20">
-            <p className="text-[9px] text-red-400 leading-normal">{loadError}</p>
-          </div>
-        )}
-
-        {showHelp && (
-          <div className="absolute inset-0 bg-black/95 backdrop-blur-md p-6 flex flex-col justify-center text-left text-white z-20 overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-[11px] font-bold uppercase tracking-widest text-purple-400">Instruções para seu Arquivo (.mb)</h4>
-              <button 
-                type="button" 
-                onClick={() => setShowHelp(false)}
-                className="text-white/40 hover:text-white text-[10px] uppercase font-bold"
-              >
-                Fechar
-              </button>
-            </div>
-            <p className="text-[10px] text-white/70 leading-relaxed mb-3">
-              O arquivo <strong>.mb (Maya Binary)</strong> é um formato nativo fechado do Autodesk Maya. Navegadores web não conseguem renderizá-lo diretamente sem uma conversão prévia.
-            </p>
-            <p className="text-[10px] text-white/70 leading-relaxed mb-4">
-              <strong>Como exportar do Maya para o Floory:</strong>
-            </p>
-            <ol className="text-[9px] text-white/50 space-y-2 mb-4 list-decimal pl-4">
-              <li>No Autodesk Maya, abra seu arquivo <strong>.mb</strong>.</li>
-              <li>Acesse <strong>File &gt; Export All...</strong></li>
-              <li>Você pode exportar como <strong>FBX (.fbx)</strong>, <strong>OBJ (.obj)</strong> ou como <strong>glTF Export (.gltf / .glb)</strong>.</li>
-              <li>Salve o arquivo convertido e simplesmente arraste-o diretamente para esta caixa ou clique no ícone de Upload!</li>
-            </ol>
-            <div className="text-[9px] italic text-emerald-400 text-center border border-emerald-500/20 bg-emerald-500/5 p-2 rounded-lg">
-              Arraste e solte o arquivo convertido (.glb, .gltf, .fbx ou .obj) aqui para visualizar agora!
             </div>
           </div>
         )}
