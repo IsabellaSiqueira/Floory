@@ -1197,6 +1197,7 @@ const StudioScreen = ({
   key?: any;
 }) => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
 
   // Auto-expand panel when processing starts to display progress messages clearly
   useEffect(() => {
@@ -1213,13 +1214,51 @@ const StudioScreen = ({
       className="absolute inset-0 w-full h-full bg-[#030107] overflow-hidden"
     >
       {/* Principal full-bleed 3D canvas of the customer plane */}
-      <div className="absolute inset-0 w-full h-full z-0 pb-[280px] flex flex-col">
+      <div className={`absolute inset-0 w-full h-full z-0 transition-opacity duration-500 ${isModelLoaded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         <ThreeDPlaneViewer 
           visualStyle={studioStyle} 
           lightingMode={studioLighting} 
           hideControls={true} 
         />
       </div>
+
+      {/* Fullscreen premium upload dropzone for empty state */}
+      {!isModelLoaded && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm bg-black/45 backdrop-blur-2xl border border-dashed border-purple-500/30 hover:border-purple-500/50 p-8 rounded-3xl flex flex-col items-center justify-center text-center transition-all duration-300 shadow-[0_20px_50px_rgba(0,0,0,0.8)] cursor-pointer group select-none"
+            onClick={() => {
+              setIsModelLoaded(true);
+              setTimeout(() => {
+                const el = document.getElementById('three-d-file-input');
+                if (el) (el as HTMLInputElement).click();
+              }, 150);
+            }}
+          >
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:border-purple-400 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all duration-500">
+              <Upload className="w-8 h-8 text-purple-400 group-hover:text-purple-300 transition-colors animate-pulse" />
+            </div>
+
+            <span className="text-[9px] uppercase tracking-[0.25em] text-purple-400 font-extrabold font-mono block mb-2">Bespoke Aircraft Studio</span>
+            <h3 className="text-base font-light tracking-tight text-white uppercase font-mono mb-2">
+              Design Personalizado 3D
+            </h3>
+            
+            <p className="text-[10px] text-gray-400 font-mono leading-relaxed mb-6 max-w-[240px]">
+              Arraste seu modelo de avião aqui ou clique para selecionar. Suporta arquivos <span className="text-purple-300 font-bold">.GLB, .GLTF ou .FBX</span>.
+            </p>
+
+            <button
+              type="button"
+              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-mono text-[9px] uppercase tracking-widest font-black rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:shadow-[0_0_20px_rgba(168,85,247,0.6)] active:scale-95 transition-all duration-300"
+            >
+              Carregar Modelo 3D
+            </button>
+          </motion.div>
+        </div>
+      )}
 
       {/* Floating Header details */}
       <div className="absolute top-12 left-6 right-6 z-10 flex justify-between items-center pointer-events-none select-none">
@@ -1229,22 +1268,25 @@ const StudioScreen = ({
         </div>
         
         {/* Elite Client Model Upload Action */}
-        <button
-          onClick={() => {
-            const el = document.getElementById('three-d-file-input');
-            if (el) {
-              (el as HTMLInputElement).click();
-            }
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-black/40 hover:bg-black/60 active:scale-95 border border-white/10 rounded-full text-[8px] uppercase tracking-widest font-bold transition-all text-white/80 hover:text-white pointer-events-auto backdrop-blur-md cursor-pointer"
-        >
-          <Upload className="w-3 h-3 text-purple-400" />
-          <span>Upload do Modelo 3D</span>
-        </button>
+        {isModelLoaded && (
+          <button
+            onClick={() => {
+              const el = document.getElementById('three-d-file-input');
+              if (el) {
+                (el as HTMLInputElement).click();
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-black/40 hover:bg-black/60 active:scale-95 border border-white/10 rounded-full text-[8px] uppercase tracking-widest font-bold transition-all text-white/80 hover:text-white pointer-events-auto backdrop-blur-md cursor-pointer animate-fade-in"
+          >
+            <Upload className="w-3 h-3 text-purple-400" />
+            <span>Upload do Modelo 3D</span>
+          </button>
+        )}
       </div>
 
       {/* Absolute positioning container at page bottom for the panel and its toggle */}
-      <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 w-[90%] max-w-md flex flex-col items-center gap-3.5 pointer-events-none">
+      {isModelLoaded && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 w-[90%] max-w-md flex flex-col items-center gap-3.5 pointer-events-none">
         
         {/* Toggle Button (Attachment on top of panel when open, or sitting alone when closed) */}
         <button
@@ -1351,6 +1393,7 @@ const StudioScreen = ({
           )}
         </AnimatePresence>
       </div>
+      )}
     </motion.div>
   );
 };
