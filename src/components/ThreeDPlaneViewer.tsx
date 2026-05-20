@@ -121,7 +121,7 @@ export const ThreeDPlaneViewer = ({
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 0.4, 3.2); // Starting zoom for visual impact
+    camera.position.set(0, 0.45, 2.6); // Framed nicely for automatic 2.4-unit scaled models
     cameraRef.current = camera;
 
     // 3. Renderer Setup (with transparency and high-specular ACES Tone-mapping)
@@ -139,10 +139,10 @@ export const ThreeDPlaneViewer = ({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.minDistance = 1.25;
+    controls.minDistance = 0.5;
     controls.maxDistance = 6.0;
     controls.maxPolarAngle = Math.PI / 2 + 0.15;
-    controls.target.set(0, -0.45, 0);
+    controls.target.set(0, 0.1, 0);
     controls.update();
     controlsRef.current = controls;
 
@@ -555,18 +555,19 @@ export const ThreeDPlaneViewer = ({
     const center = new THREE.Vector3();
     box.getCenter(center);
     
-    // Position object center at origin (0,0,0) with a slight default lift
-    object.position.x = -center.x;
-    object.position.y = -center.y - 0.1;
-    object.position.z = -center.z;
-    
-    // Scale object to fit nice showroom boundaries (target absolute major dimension of 2.2 units)
+    // Scale object to fit nice showroom boundaries (target absolute major dimension of 2.4 units)
     const maxDim = Math.max(size.x, size.y, size.z);
     const desiredMajorDimension = 2.4; 
+    let scaleFactor = 1;
     if (maxDim > 0) {
-      const scaleFactor = desiredMajorDimension / maxDim;
+      scaleFactor = desiredMajorDimension / maxDim;
       object.scale.set(scaleFactor, scaleFactor, scaleFactor);
     }
+    
+    // Position object center at origin (0,0.1,0) in parent space (with +0.1Y lift for visual balance)
+    object.position.x = -center.x * scaleFactor;
+    object.position.y = -center.y * scaleFactor + 0.1;
+    object.position.z = -center.z * scaleFactor;
   };
 
   // Preprocessor for FBX models to fix/heal header casing and version number issues (THREE.FBXLoader error)
@@ -813,8 +814,8 @@ export const ThreeDPlaneViewer = ({
 
       // Reset camera and controls to default perspective
       if (controlsRef.current && cameraRef.current) {
-        controlsRef.current.target.set(0, -0.45, 0);
-        cameraRef.current.position.set(0, 0.4, 3.2);
+        controlsRef.current.target.set(0, 0.1, 0);
+        cameraRef.current.position.set(0, 0.45, 2.6);
         controlsRef.current.update();
       }
     }
@@ -841,7 +842,7 @@ export const ThreeDPlaneViewer = ({
 
   return (
     <div 
-      className="w-full h-full flex-1 flex flex-col items-center justify-center relative touch-none select-none"
+      className="absolute inset-0 w-full h-full touch-none select-none flex flex-col items-center justify-center"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -1030,8 +1031,8 @@ export const ThreeDPlaneViewer = ({
               lastInteractionTimeRef.current = Date.now();
               // 1. Reset Camera position & Orbit target
               if (controlsRef.current && cameraRef.current) {
-                controlsRef.current.target.set(0, -0.45, 0);
-                cameraRef.current.position.set(0, 0.4, 3.2);
+                controlsRef.current.target.set(0, 0.1, 0);
+                cameraRef.current.position.set(0, 0.45, 2.6);
                 controlsRef.current.update();
               }
               // 2. Reset aircraft translation offsets to 0,0
@@ -1052,8 +1053,8 @@ export const ThreeDPlaneViewer = ({
             onClick={() => {
               lastInteractionTimeRef.current = Date.now();
               if (controlsRef.current && cameraRef.current) {
-                controlsRef.current.target.set(0, -0.45, 0);
-                cameraRef.current.position.set(0, 0.4, 3.2);
+                controlsRef.current.target.set(0, 0.1, 0);
+                cameraRef.current.position.set(0, 0.45, 2.6);
                 controlsRef.current.update();
               }
             }}
