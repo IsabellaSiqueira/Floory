@@ -122,7 +122,7 @@ async function startServer() {
       }));
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.5-flash",
         contents: formattedContents,
         config: {
           systemInstruction: "Você é o Diretor de Projetos VIP da Floory Aviation. Seu nome é Floory Assistant. Seu tom é sofisticado, técnico e extremamente atencioso. Você ajuda clientes de alto nível a acompanhar seus projetos de personalização de jatos. O projeto atual é o PR-NEY (Bombardier Global 6000), que está no hangar em Jundiaí/SP, na fase de 'Verniz Final' com entrega prevista para 05 Abr."
