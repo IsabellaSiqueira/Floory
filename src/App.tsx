@@ -25,7 +25,7 @@ import {
   Search,
   Send
 } from 'lucide-react';
-import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
+import { ThreeDPlaneViewer } from './components/ThreeDPlaneViewer';
 
 // --- Types & Constants ---
 
@@ -39,7 +39,7 @@ enum Screen {
 
 // --- Components ---
 
-const GlassCard = ({ children, className = "", onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => (
+const GlassCard = ({ children, className = "", onClick }: { children: React.ReactNode, className?: string, onClick?: () => void, key?: any }) => (
   <motion.div 
     whileHover={onClick ? { scale: 1.02 } : {}}
     whileTap={onClick ? { scale: 0.98 } : {}}
@@ -743,7 +743,7 @@ const App = () => {
   );
 };
 
-const AuthScreen = ({ onAuth, isScanning, isFailed, onRetry, onSimulateFail, showCustomAlert }: { onAuth: () => void, isScanning: boolean, isFailed: boolean, onRetry: () => void, onSimulateFail: () => void, showCustomAlert: (m: string) => void }) => {
+const AuthScreen = ({ onAuth, isScanning, isFailed, onRetry, onSimulateFail, showCustomAlert }: { onAuth: () => void, isScanning: boolean, isFailed: boolean, onRetry: () => void, onSimulateFail: () => void, showCustomAlert: (m: string) => void, key?: any }) => {
   const [isFidoLoading, setIsFidoLoading] = useState(false);
 
   const handleFidoClick = () => {
@@ -889,7 +889,7 @@ const AuthScreen = ({ onAuth, isScanning, isFailed, onRetry, onSimulateFail, sho
 };
 
 
-const HomeScreen = ({ onOpenCall, onOpenAi, onOpenFleet }: { onOpenCall: () => void, onOpenAi: () => void, onOpenFleet: () => void }) => (
+const HomeScreen = ({ onOpenCall, onOpenAi, onOpenFleet }: { onOpenCall: () => void, onOpenAi: () => void, onOpenFleet: () => void, key?: any }) => (
   <motion.div 
     initial={{ opacity: 0, x: 20 }}
     animate={{ opacity: 1, x: 0 }}
@@ -912,46 +912,66 @@ const HomeScreen = ({ onOpenCall, onOpenAi, onOpenFleet }: { onOpenCall: () => v
     </header>
 
     <div className="space-y-4">
-      <GlassCard className="aspect-[4/3] p-0 group overflow-hidden border-white/30 relative">
-        <APIProvider apiKey={API_KEY} version="weekly">
-          <Map
-            defaultCenter={{ lat: -23.1819, lng: -46.9406 }} // Jundiaí Airport area
-            defaultZoom={15}
-            mapId="FLOORY_DARK_MAP"
-            gestureHandling={'none'}
-            disableDefaultUI={true}
-            internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
-            style={{ width: '100%', height: '100%' }}
-            styles={[
-              { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-              { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-              { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-              { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-              { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-              { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
-              { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
-              { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-              { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-              { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
-              { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
-              { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
-              { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
-              { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
-              { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
-              { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
-            ]}
-          >
-            <AdvancedMarker position={{ lat: -23.1819, lng: -46.9406 }}>
-              <Pin background="#9333ea" borderColor="#ffffff" glyphColor="#ffffff" />
-            </AdvancedMarker>
-          </Map>
-        </APIProvider>
-        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black via-black/40 to-transparent z-10">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-purple-400" />
-            <span className="text-[11px] font-bold uppercase tracking-widest">Hangar Jundiaí/SP</span>
+      <GlassCard className="aspect-[4/3] p-0 group overflow-hidden border-white/30 relative bg-[#09050d] flex items-center justify-center">
+        {/* Dynamic decorative radar/sonar circles & coordinate overlays */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#9333ea 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+        
+        {/* Abstract vector representation of airport lines */}
+        <svg className="absolute inset-0 w-full h-full opacity-25 pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+          {/* Main airport runway strip */}
+          <line x1="10" y1="90" x2="90" y2="10" stroke="#a855f7" strokeWidth="1.2" strokeDasharray="3 2" />
+          {/* Taxiways */}
+          <line x1="25" y1="75" x2="75" y2="75" stroke="#10b981" strokeWidth="0.6" strokeDasharray="1 1" />
+          <line x1="50" y1="50" x2="50" y2="90" stroke="#9333ea" strokeWidth="0.6" />
+          <line x1="50" y1="50" x2="90" y2="50" stroke="#9333ea" strokeWidth="0.6" />
+          {/* Airport range circles */}
+          <circle cx="50" cy="50" r="15" fill="none" stroke="#a855f7" strokeWidth="0.3" strokeDasharray="3 3" />
+          <circle cx="50" cy="50" r="30" fill="none" stroke="#a855f7" strokeWidth="0.3" strokeDasharray="4 4" />
+        </svg>
+
+        {/* Dynamic pulse / sonar beacon around centered MapPin */}
+        <div className="relative flex items-center justify-center z-10">
+          <motion.div 
+            animate={{ scale: [1, 2.5, 1], opacity: [0.4, 0, 0.4] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeOut" }}
+            className="absolute w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/40"
+          />
+          <motion.div 
+            animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+            className="absolute w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/30"
+          />
+          <div className="w-10 h-10 rounded-full bg-purple-600/90 border border-purple-400 shadow-[0_0_15px_rgba(147,51,234,0.5)] flex items-center justify-center relative">
+            <MapPin className="w-5 h-5 text-white animate-pulse" />
           </div>
-          <p className="text-[9px] text-white/50 uppercase mt-1">Conexão via Google Maps Satélite</p>
+        </div>
+
+        {/* Outer latitude/longitude coordinates to reinforce aesthetic accuracy */}
+        <div className="absolute top-3 left-3 pointer-events-none text-[#9333ea]/80 font-mono text-[7px] uppercase tracking-wider">
+          23.1819° S, 46.9406° W • SBJD Hangar 04
+        </div>
+        <div className="absolute top-3 right-3 pointer-events-none">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-[7px] font-bold text-emerald-400 uppercase tracking-widest font-mono">
+            Sinal Estabilizado
+          </span>
+        </div>
+
+        {/* Bottom address overlay */}
+        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent z-10">
+          <div className="flex justify-between items-end">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-purple-400" />
+                <span className="text-[11px] font-bold uppercase tracking-widest text-white">Hangar Jundiaí/SP</span>
+              </div>
+              <p className="text-[9px] text-white/60 mt-0.5 font-medium uppercase tracking-wider">R. Emilio Antonon, 1000 - Aeroporto Jundiaí</p>
+            </div>
+            <div className="text-right">
+              <span className="text-[7.5px] bg-purple-500/20 border border-purple-500/40 text-purple-300 font-bold px-2 py-0.5 rounded uppercase tracking-widest font-mono inline-block">
+                CONEXÃO VIA SATÉLITE (Mock)
+              </span>
+            </div>
+          </div>
         </div>
       </GlassCard>
 
@@ -1031,9 +1051,10 @@ const HomeScreen = ({ onOpenCall, onOpenAi, onOpenFleet }: { onOpenCall: () => v
 const ReportScreen = ({ onOpenMarketplace, techThinkingStep, setTechThinkingStep, thinkingMessageIndex, setThinkingMessageIndex }: { 
   onOpenMarketplace: () => void, 
   techThinkingStep: number, 
-  setTechThinkingStep: (n: number) => void,
+  setTechThinkingStep: React.Dispatch<React.SetStateAction<number>>,
   thinkingMessageIndex: number,
-  setThinkingMessageIndex: (n: number) => void
+  setThinkingMessageIndex: React.Dispatch<React.SetStateAction<number>>,
+  key?: any
 }) => {
   const [dataLoading, setDataLoading] = useState(true);
 
@@ -1101,22 +1122,8 @@ const ReportScreen = ({ onOpenMarketplace, techThinkingStep, setTechThinkingStep
           </div>
         </GlassCard>
       ) : (
-        <GlassCard className="aspect-video p-0 flex items-center justify-center overflow-hidden border-emerald-400/20 bg-emerald-500/5 relative">
-          <div className="absolute inset-0 xray-mesh opacity-20" />
-          <div className="laser-scan" />
-          
-          <div className="relative text-center z-10">
-            <motion.div 
-              animate={{ 
-                rotateY: [0, 180, 360],
-                scale: [1, 1.1, 1]
-              }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-            >
-              <Activity className="w-10 h-10 text-emerald-400/50" />
-            </motion.div>
-            <p className="text-[8px] text-emerald-400 uppercase tracking-[0.3em] mt-4 font-bold">Scanning Airflow Dynamics...</p>
-          </div>
+        <GlassCard className="aspect-video p-0 flex items-center justify-center overflow-hidden border-emerald-400/20 bg-black/40 relative">
+          <ThreeDPlaneViewer />
         </GlassCard>
       )}
 
@@ -1166,7 +1173,7 @@ const ReportScreen = ({ onOpenMarketplace, techThinkingStep, setTechThinkingStep
   );
 };
 
-const LegalScreen = ({ onOpenDoc, signedDocs }: { onOpenDoc: (n: string) => void, signedDocs: string[] }) => (
+const LegalScreen = ({ onOpenDoc, signedDocs }: { onOpenDoc: (n: string) => void, signedDocs: string[], key?: any }) => (
   <motion.div 
     initial={{ opacity: 0, x: 20 }}
     animate={{ opacity: 1, x: 0 }}
@@ -1227,7 +1234,8 @@ const TimelineScreen = ({ onOpenCall, onDownload, onOpenImage, handleQualityAudi
   onOpenImage: (img: string) => void,
   handleQualityAudit: () => void,
   isAuditing: boolean,
-  hasAudited: boolean
+  hasAudited: boolean,
+  key?: any
 }) => (
   <motion.div 
     initial={{ opacity: 0, x: 20 }}

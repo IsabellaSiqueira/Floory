@@ -116,24 +116,22 @@ async function startServer() {
         }
       });
 
-      const model = ai.getGenerativeModel({ 
-        model: "gemini-2.0-flash",
-        systemInstruction: "Você é o Diretor de Projetos VIP da Floory Aviation. Seu nome é Floory Assistant. Seu tom é sofisticado, técnico e extremamente atencioso. Você ajuda clientes de alto nível a acompanhar seus projetos de personalização de jatos. O projeto atual é o PR-NEY (Bombardier Global 6000), que está no hangar em Jundiaí/SP, na fase de 'Verniz Final' com entrega prevista para 05 Abr."
-      });
-
-      const history = messages.slice(0, -1).map(msg => ({
+      const formattedContents = messages.map(msg => ({
         role: msg.role === "assistant" ? "model" as const : "user" as const,
         parts: [{ text: msg.content }]
       }));
 
-      const chat = model.startChat({ history });
-      const lastMessage = messages[messages.length - 1].content;
-      const result = await chat.sendMessage(lastMessage);
-      const response = await result.response;
-      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: formattedContents,
+        config: {
+          systemInstruction: "Você é o Diretor de Projetos VIP da Floory Aviation. Seu nome é Floory Assistant. Seu tom é sofisticado, técnico e extremamente atencioso. Você ajuda clientes de alto nível a acompanhar seus projetos de personalização de jatos. O projeto atual é o PR-NEY (Bombardier Global 6000), que está no hangar em Jundiaí/SP, na fase de 'Verniz Final' com entrega prevista para 05 Abr."
+        }
+      });
+
       res.json({ 
         success: true, 
-        message: response.text() 
+        message: response.text || "Sem resposta do assistente."
       });
 
     } catch (error: any) {
